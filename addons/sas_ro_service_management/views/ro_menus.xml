@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_ro_root" name="SAS Warranty &amp; Installation" web_icon="sale_management,static/description/icon.png"/>
+
+    <menuitem id="menu_ro_operations" name="Operations" parent="menu_ro_root" sequence="10"/>
+    
+    <menuitem id="menu_ro_installation" name="Installations" parent="menu_ro_operations" 
+              action="action_ro_installation_order" sequence="1"/> <menuitem id="menu_ro_service" name="Service Orders" parent="menu_ro_operations" 
+              action="action_ro_service_order" sequence="2"/>
+
+    <menuitem id="menu_ro_contracts" name="Contracts" parent="menu_ro_root" sequence="20"/>
+    
+    <menuitem id="menu_ro_warranty" name="Warranties" parent="menu_ro_contracts" 
+              action="action_ro_warranty" sequence="1"/> <menuitem id="menu_ro_amc" name="AMC" parent="menu_ro_contracts" 
+              action="action_ro_amc" sequence="2"/> </odoo>

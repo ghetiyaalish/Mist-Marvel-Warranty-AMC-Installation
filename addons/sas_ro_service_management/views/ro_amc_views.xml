@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ro_amc_tree" model="ir.ui.view">
+        <field name="name">ro.amc.tree</field>
+        <field name="model">ro.amc</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" optional="show"/>
+                <field name="partner_id" optional="show"/>
+                <field name="start_date" optional="show"/>
+                <field name="end_date" optional="show"/>
+                <field name="state" optional="show"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_ro_amc_search" model="ir.ui.view">
+        <field name="name">ro.amc.search</field>
+        <field name="model">ro.amc</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                
+                <filter string="Active" name="active" domain="[('state', '=', 'active')]"/>
+                <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Expiring Soon" name="expiring" 
+                        domain="[('end_date', '&lt;=', (context_today() + relativedelta(days=30)).strftime('%Y-%m-%d')), ('state', '=', 'active')]"/>
+                
+                <group expand="0" string="Group By">
+                    <filter string="Customer" name="group_customer" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Status" name="group_status" context="{'group_by': 'state'}"/>
+                    <filter string="Frequency" name="group_freq" context="{'group_by': 'frequency'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ro_amc_form" model="ir.ui.view">
+        <field name="name">ro.amc.form</field>
+        <field name="model">ro.amc</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                <button name="action_create_invoice" string="Create Invoice" type="object" 
+                            class="oe_highlight" invisible="invoice_id != False"/>
+                <field name="state" widget="statusbar" />
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_invoice" type="object" class="oe_stat_button" 
+                                icon="fa-pencil-square-o" invisible="not invoice_id">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_text">Invoice</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="invoice_id" invisible="1"/>
+                            <field name="partner_id"/>
+                            <field name="product_id"/> <field name="start_date"/>
+                            <field name="end_date"/>
+                        </group>
+                        <group>
+                            <field name="frequency"/>
+                            <field name="contract_type"/>
+                            <field name="amount"/>
+                            <field name="technician_id"/>
+                            <field name="auto_generate_service"/>
+                        </group>
+                    </group>
+                    <field name="inclusions" placeholder="Terms and Inclusions..." />
+
+                    <notebook>
+                        <page string="Part Limits">
+                            <field name="coverage_ids">
+                                <tree editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="allowed_qty"/>
+                                    <field name="consumed_qty"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Service History">
+                            <field name="service_ids" readonly="1"/>
+                        </page>
+                    </notebook>
+
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_ro_amc_calendar" model="ir.ui.view">
+        <field name="name">ro.amc.calendar</field>
+        <field name="model">ro.amc</field>
+        <field name="arch" type="xml">
+            <calendar string="AMC Contracts" date_start="end_date" color="state">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="product_id"/>
+            </calendar>
+        </field>
+    </record>
+
+    <record id="action_ro_amc" model="ir.actions.act_window">
+        <field name="name">AMC Contracts</field>
+        <field name="res_model">ro.amc</field>
+        <field name="view_mode">tree,form,kanban,pivot,calendar,graph,activity</field>
+    </record>
+</odoo> 

@@ -1,0 +1,56 @@
+services:
+  # Database Service
+  db:
+    image: postgres:16
+    user: root
+    environment:
+      - POSTGRES_USER=sas
+      - POSTGRES_PASSWORD=sas
+      - POSTGRES_DB=postgres
+    restart: always             # run as a service
+    volumes:
+        - ./data/postgresql:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sas"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+ 
+  phppgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@peanutsquare.com
+      PGADMIN_DEFAULT_PASSWORD: Peanut@306
+      # PGADMIN_LISTEN_ADDRESS: 110.227.222.67
+    ports:
+      - "7083:80"
+    depends_on:
+      - db
+
+  # Odoo Application Service
+  odoo:   
+    image: odoo:17.0
+    container_name: odoo_17  # <--- Updated name for consistency
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    ports:
+      - "8069:8069" # Web Interface
+      - "8072:8072" # Live Chat / Longpolling
+    volumes:
+      - odoo_web_data:/var/lib/odoo
+      - ./config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+    environment:
+      - HOST=db
+      - USER=$POSTGRES_USER
+      - PASSWORD=$POSTGRES_PASSWORD
+    # Command ensures the custom config file is read
+    command: --config /etc/odoo/odoo.conf
+
+volumes:
+  odoo_web_data:
+  odoo_db_data:

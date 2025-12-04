@@ -1,0 +1,16 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ro_installation_tech,ro.installation.tech,model_ro_installation,group_ro_technician,1,1,0,0
+access_ro_service_tech,ro.service.order.tech,model_ro_service_order,group_ro_technician,1,1,0,0
+access_ro_part_line_tech,ro.service.part.line.tech,model_ro_service_part_line,group_ro_technician,1,1,1,0
+access_ro_warranty_tech,ro.warranty.tech,model_ro_warranty,group_ro_technician,1,0,0,0
+access_ro_amc_tech,ro.amc.tech,model_ro_amc,group_ro_technician,1,0,0,0
+access_ro_installation_mgr,ro.installation.mgr,model_ro_installation,group_ro_manager,1,1,1,1
+access_ro_service_mgr,ro.service.order.mgr,model_ro_service_order,group_ro_manager,1,1,1,1
+access_ro_part_line_mgr,ro.service.part.line.mgr,model_ro_service_part_line,group_ro_manager,1,1,1,1
+access_ro_warranty_mgr,ro.warranty.mgr,model_ro_warranty,group_ro_manager,1,1,1,1
+access_ro_amc_mgr,ro.amc.mgr,model_ro_amc,group_ro_manager,1,1,1,1
+access_ro_fetch_wizard,ro.fetch.orders.wizard,model_ro_fetch_orders_wizard,base.group_user,1,1,1,1
+access_ro_machine_master,ro.machine.master,model_ro_machine_master,base.group_user,1,0,0,0
+access_product_component_warranty,product.component.warranty,model_product_component_warranty,base.group_user,1,1,1,1
+access_ro_amc_coverage,ro.amc.coverage,model_ro_amc_coverage,base.group_user,1,1,1,1
+access_ro_machine_master,ro.machine.master,model_ro_machine_master,base.group_user,1,0,0,0

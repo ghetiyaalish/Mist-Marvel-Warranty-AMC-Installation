@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Inherit the Sale Order form view -->
+    <record id="view_order_form" model="ir.ui.view">
+        <field name="name">sale.order.view.form.inherit.product.warranty.management.odoo</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <!-- Extend the Sale Order form view by adding a smart tab -->
+            <xpath expr="//div[@name='button_box']/button[last()]"
+                   position="after">
+                <field name="is_warranty_check" invisible="1"/>
+                <button name="action_open_smart_tab"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-clock-o"
+                        string="Warranty"
+                        invisible=" is_warranty_check != True">
+                </button>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_order_form_inherit_warranty_line" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.warranty.line</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='order_line']/tree/field[@name='price_unit']" position="after">
+                <field name="warranty_number" readonly="1"/>
+                <field name="warranty_expiry" readonly="1"/>
+                
+            </xpath>
+        </field>
+    </record>
+</odoo>

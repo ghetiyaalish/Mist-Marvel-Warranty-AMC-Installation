@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_template_form_view_ro_inherit" model="ir.ui.view">
+        <field name="name">product.template.form.ro.inherit</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            
+            <xpath expr="//field[@name='categ_id']" position="after">
+                <field name="warranty_months" string="Full Machine Warranty (Months)"/>
+                <field name="requires_installation"/>
+            </xpath>
+            
+            <notebook position="inside">
+                <page string="Component Warranties">
+                    <field name="component_warranty_ids">
+                        <tree editable="bottom">
+                            <field name="component_id"/>
+                            <field name="warranty_months"/>
+                        </tree>
+                    </field>
+                    <p class="o_form_label">
+                        *If a part is not listed here, it is covered only by the Full Machine Warranty.
+                    </p>
+                </page>
+            </notebook>
+            
+            </field>
+    </record>
+</odoo>

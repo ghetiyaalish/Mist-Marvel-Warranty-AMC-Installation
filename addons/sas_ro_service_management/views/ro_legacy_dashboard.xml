@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_ro_part_line_legacy_tree" model="ir.ui.view">
+        <field name="name">ro.service.part.line.legacy.tree</field>
+        <field name="model">ro.service.part.line</field>
+        <field name="arch" type="xml">
+            <tree string="Technician Parts Report" create="false" edit="false">
+                <field name="comp_no" string="COMP NO." optional="show"/>
+                <field name="complaint_date" string="COMPL. DATE" optional="show"/>
+                <field name="date_done" string="CLOSE DATE" optional="show"/>
+                <field name="customer_id" string="CUSTOMER NAME" optional="show"/>
+                <field name="machine_id" string="ITEM NAME" optional="show"/>
+                <field name="service_type" optional="show"/>
+                <field name="technician_id" optional="show"/>
+                <field name="product_id" string="PART NAME" optional="show"/>
+                <field name="qty" sum="Total Qty" optional="show"/>
+                <field name="unit_price" string="RATE" optional="show"/>
+                <field name="part_amount" string="PART.AMT" sum="Total Amount" optional="show"/>
+                <!-- <field name="create_uid" string="USER" optional="hide"/> -->
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_ro_part_line_legacy_search" model="ir.ui.view">
+        <field name="name">ro.service.part.line.legacy.search</field>
+        <field name="model">ro.service.part.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="technician_id"/>
+                <field name="product_id"/>
+                <field name="date_done"/>
+                <filter string="Today" name="today" domain="[('date_done', '=', context_today())]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Technician" name="group_tech" context="{'group_by': 'technician_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_ro_legacy_parts" model="ir.actions.act_window">
+        <field name="name">Technician Pending Parts</field>
+        <field name="res_model">ro.service.part.line</field>
+        <field name="view_mode">tree,pivot</field>
+        <field name="view_id" ref="view_ro_part_line_legacy_tree"/>
+        <field name="context">{'search_default_today': 1}</field>
+    </record>
+
+
+    <!-- <record id="view_ro_machine_master_tree" model="ir.ui.view">
+        <field name="name">ro.warranty.machine.master</field>
+        <field name="model">ro.warranty</field>
+        <field name="arch" type="xml">
+            <tree string="Machine Master" create="false" edit="false" delete="false">
+                <field name="invoice_no" string="INV.NO."/>
+                
+                <field name="start_date" string="DATE"/>
+                
+                <field name="partner_code" string="CODE"/>
+                
+                <field name="partner_id" string="COMPANY NAME"/>
+                
+                <field name="product_id" string="ITEMNAME/MODEL"/>
+                
+                <field name="lot_id" string="SERIAL NO"/>
+                
+                <field name="partner_address" string="ADDRESS"/>
+                
+                <field name="partner_phone" string="CONTACT"/>
+                
+                <field name="partner_mobile" string="OTHER CONTACT"/>
+                
+                <field name="start_date" string="START-DATE"/>
+                <field name="end_date" string="END-DATE"/>
+                
+                <field name="contract_status" string="CONTRACT" widget="badge"
+                       decoration-danger="contract_status == 'OUT-WARRANTY'"
+                       decoration-success="contract_status == 'IN-WARRANTY'"/>
+                       
+                <button string="WARRANTY" class="btn btn-light btn-sm disabled" style="color:black;"/>
+
+                <button name="%(sas_ro_service_management.action_ro_service_order)d" type="action" 
+                        string="COMPLAIN" class="btn btn-primary btn-sm"
+                        context="{'default_partner_id': partner_id, 'default_product_id': product_id, 'default_warranty_id': id}"/>
+                
+                <button name="action_view_history" type="object" 
+                        string="History" class="btn btn-warning btn-sm"/>
+                
+                <button name="action_open_warranty_form" type="object" 
+                        string="Edit" class="btn btn-secondary btn-sm"/>
+            </tree>
+        </field>
+    </record> -->
+
+
+    <record id="view_ro_machine_master_tree" model="ir.ui.view">
+        <field name="name">ro.warranty.machine.master</field>
+        <field name="model">ro.machine.master</field>
+        <field name="arch" type="xml">
+            <tree string="Home">
+                <field name="state" column_invisible="1"/>
+                <field name="invoice_no" string="INV NO." optional="show"/>
+                <field name="sale_date" string="DATE" optional="show"/>
+                <field name="partner_code" string="CODE" optional="show"/>
+                <field name="partner_id" string="CUSTOMER NAME" optional="show"/>
+                <field name="product_id" string="ITEM/MODEL" optional="show"/>
+                <!-- <field name="lot_id" string="SERIAL NO" optional="show"/> -->
+                <field name="partner_address" string="ADDRESS" optional="show"/>
+                <field name="partner_phone" string="CONTACT" optional="show"/>
+                <field name="partner_mobile" string="OTHER CONTACT" optional="show"/>
+                <field name="start_date" string="WARRANTY START" optional="show"/>
+
+                <field name="end_date" string="WARRANTY END" optional="show"/>
+                <field name="contract_status" string="CONTRACT" widget="badge"
+                       decoration-danger="contract_status == 'OUT-WARRANTY'"
+                       decoration-success="contract_status == 'IN-WARRANTY'" optional="show"/>
+
+                <field name="type_label" string="TYPE"/>
+                       
+                <!-- <field string="WARRANTY" class="btn btn-light btn-sm disabled" style="color:black;"/> -->
+                <!-- <button name="action_log_complaint" type="object" 
+                        string="COMPLAINT" class="btn btn-primary btn-sm"
+                        context="{'default_partner_id': partner_id, 'default_product_id': product_id, 'default_warranty_id': id}"/> -->
+                <button name="action_log_complaint" type="object" 
+                    string="COMPLAINT" class="btn btn-primary btn-sm"/>
+
+                <button name="action_view_history" type="object" 
+                        string="HISTORY" class="btn btn-warning btn-sm"/>
+                
+                <button name="action_open_source" type="object" 
+                        string="EDIT" class="btn btn-secondary btn-sm"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_ro_machine_master" model="ir.actions.act_window">
+        <field name="name">Home</field>
+        <field name="res_model">ro.machine.master</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_ro_machine_master_tree"/>
+    </record>
+
+
+    <record id="view_ro_technician_collection_tree" model="ir.ui.view">
+        <field name="name">account.move.technician.tree</field>
+        <field name="model">account.move</field>
+        <field name="arch" type="xml">
+            <tree string="Technician Amount Reconciliation" create="false">
+                <field name="invoice_date" string="DATE" optional="show"/>
+                <field name="partner_id" string="NAME" optional="show"/>
+                <field name="customer_contact" string="CONTACT" optional="show"/>
+                <field name="ro_technician_id" string="TECHNICIAN" optional="show"/>
+                <field name="voucher_type" string="VCH. TYPE" optional="show"/>
+                <field name="name" string="VCH. ID" optional="show"/>
+                <field name="payment_mode_name" string="PAYMENT MODE" optional="show"/>
+                <field name="amount_total" string="PAID AMT" widget="monetary" 
+                       decoration-muted="payment_state != 'paid'" optional="show"/>
+                <field name="payment_reference" string="REMARK" optional="show"/>
+                <field name="payment_state" string="PAYMENT STATUS" widget="badge" decoration-success="payment_state=='paid'" decoration-warning="payment_state=='not_paid'" optional="show"/>
+                <field name="amount_total" string="TOTAL AMT" sum="Total" optional="show"/>
+                <field name="amount_total" string="TOTAL PAID AMT" sum="Total Paid" optional="show"/>
+                <field name="invoice_user_id" string="USER" optional="show"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_ro_technician_collection" model="ir.actions.act_window">
+        <field name="name">Technician Amount Reconciliation</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_ro_technician_collection_tree"/>
+        <field name="domain">[('move_type', '=', 'out_invoice')]</field>
+        <field name="context">{'group_by': 'ro_technician_id'}</field>
+    </record>
+
+    <menuitem id="menu_ro_legacy_root" name="Dashboard" parent="menu_ro_root" sequence="5"/>
+    
+    <menuitem id="menu_ro_legacy_machines" name="Home" 
+              parent="menu_ro_legacy_root" action="action_ro_machine_master" sequence="1"/>
+              
+    <menuitem id="menu_ro_legacy_parts" name="Technician Pending Parts" 
+              parent="menu_ro_legacy_root" action="action_ro_legacy_parts" sequence="2"/>
+              
+    <menuitem id="menu_ro_legacy_collection" name="Technician Amount Reconciliation" 
+              parent="menu_ro_legacy_root" action="action_ro_technician_collection" sequence="3"/>
+
+</odoo>

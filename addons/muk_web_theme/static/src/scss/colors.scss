@@ -1,0 +1,24 @@
+// Colors
+
+$mk_color_appsmenu_text: #F8F9FA;
+$mk_color_appbar_text: #DEE2E6;
+$mk_color_appbar_active: #5D8DA8;
+$mk_color_appbar_background: #111827;
+
+$mk_color_nav_header_text: #ffffff;
+
+// Override
+
+$mk-appsmenu-color: $mk_color_appsmenu_text;
+$mk-appbar-color: $mk_color_appbar_text;
+$mk-appbar-active: $mk_color_appbar_active;
+$mk-appbar-background: $mk_color_appbar_background;
+
+$mk-nav-header-color: $mk_color_nav_header_text;
+
+.o_main_navbar .o_menu_brand {
+	color: var(--NavBar-brand-color, #{$mk-nav-header-color}) !important;
+}
+.o_main_navbar .o_menu_brand, .o_main_navbar .o_navbar_apps_menu .dropdown-toggle, .o_main_navbar .o_nav_entry, .o_main_navbar .dropdown-toggle {
+    color: var(--NavBar-brand-color, #{$mk-nav-header-color}) !important;
+}

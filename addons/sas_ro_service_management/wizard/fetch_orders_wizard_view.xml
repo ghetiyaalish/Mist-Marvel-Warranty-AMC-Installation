@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ro_fetch_orders_wizard" model="ir.ui.view">
+        <field name="name">ro.fetch.orders.wizard.form</field>
+        <field name="model">ro.fetch.orders.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Fetch Orders">
+                <group>
+                    <field name="partner_id"/>
+                </group>
+                <group>
+                    <field name="service_order_ids" widget="many2many_checkboxes" nolabel="1"/>
+                </group>
+                <footer>
+                    <button name="action_create_bulk_invoice" string="Create Invoice" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ro_fetch_orders" model="ir.actions.act_window">
+        <field name="name">Fetch Orders to Invoice</field>
+        <field name="res_model">ro.fetch.orders.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_ro_fetch_orders" name="Fetch Orders" 
+              parent="menu_ro_operations" 
+              action="action_ro_fetch_orders" sequence="50"/>
+</odoo>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo noupdate="1">
+    <data noupdate="1">
+        <record id="seq_product_warranty_number" model="ir.sequence">
+            <field name="name">Product Warranty Number</field>
+            <field name="code">product.warranty.number</field>
+            <field name="prefix">WRN-</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+        </record>
+    </data>
+</odoo>

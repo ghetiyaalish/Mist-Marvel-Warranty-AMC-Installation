@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_ro_warranty" model="ir.sequence">
+        <field name="name">RO Warranty</field>
+        <field name="code">ro.warranty</field>
+        <field name="prefix">WAR/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+    <record id="seq_ro_installation" model="ir.sequence">
+        <field name="name">RO Installation</field>
+        <field name="code">ro.installation</field>
+        <field name="prefix">INST/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+    <record id="seq_ro_amc" model="ir.sequence">
+        <field name="name">RO AMC</field>
+        <field name="code">ro.amc</field>
+        <field name="prefix">AMC/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+    <record id="seq_ro_service" model="ir.sequence">
+        <field name="name">RO Service</field>
+        <field name="code">ro.service.order</field>
+        <field name="prefix">SRV/%(year)s/</field>
+        <field name="padding">4</field>
+    </record>
+</odoo>

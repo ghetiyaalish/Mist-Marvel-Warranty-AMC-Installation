@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_generate_amc_services" model="ir.cron">
+        <field name="name">RO: Generate AMC Service Orders</field>
+        <field name="model_id" ref="model_ro_amc"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_generate_service_orders()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="doall" eval="False"/>
+    </record>
+
+    <record id="ir_cron_amc_auto_activate" model="ir.cron">
+            <field name="name">RO: Auto-Activate AMC Contracts</field>
+            <field name="model_id" ref="model_ro_amc"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_auto_activate_amc()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+        </record>
+
+    <!-- <record id="ir_cron_warranty_reminder" model="ir.cron">
+            <field name="name">RO: Send Warranty Expiry Emails</field>
+            <field name="model_id" ref="model_ro_warranty"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_send_warranty_expiry_reminders()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+        </record>
+
+    <record id="ir_cron_amc_reminder" model="ir.cron">
+        <field name="name">RO: Send AMC Expiry Emails</field>
+        <field name="model_id" ref="model_ro_amc"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_send_amc_reminders()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+    </record> -->
+</odoo>

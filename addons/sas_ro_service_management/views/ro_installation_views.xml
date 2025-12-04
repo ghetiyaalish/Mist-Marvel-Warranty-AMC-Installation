@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ro_installation_tree" model="ir.ui.view">
+        <field name="name">ro.installation.tree</field>
+        <field name="model">ro.installation</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name" optional="show"/>
+                <field name="partner_id" optional="show"/>
+                <field name="scheduled_date" optional="show"/>
+                <field name="status" optional="show"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_ro_installation_search" model="ir.ui.view">
+        <field name="name">ro.installation.search</field>
+        <field name="model">ro.installation</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="assigned_to"/>
+                
+                <filter string="My Installations" name="my_installations" domain="[('assigned_to', '=', uid)]"/>
+                <filter string="Today" name="today" domain="[('scheduled_date', '&gt;=', context_today().strftime('%Y-%m-%d 00:00:00')), ('scheduled_date', '&lt;=', context_today().strftime('%Y-%m-%d 23:59:59'))]"/>
+                <separator/>
+                <filter string="Planned" name="planned" domain="[('status', '=', 'planned')]"/>
+                <filter string="Done" name="done" domain="[('status', '=', 'done')]"/>
+                
+                <group expand="0" string="Group By">
+                    <filter string="Customer" name="group_customer" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Technician" name="group_tech" context="{'group_by': 'assigned_to'}"/>
+                    <filter string="Status" name="group_status" context="{'group_by': 'status'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_ro_installation_form" model="ir.ui.view">
+        <field name="name">ro.installation.form</field>
+        <field name="model">ro.installation</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_done" string="Mark Done" type="object" 
+                            invisible="status == 'done'" class="oe_highlight"/>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="product_id"/>
+                            <field name="lot_id" context="{'default_product_id': product_id}"/> <field name="sale_id"/>
+                            <field name="location"/> 
+                        </group>
+                        <group>
+                            <field name="scheduled_date"/>
+                            <field name="assigned_to"/>
+                            <field name="done_date" readonly="1"/> 
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Details">
+                            <group>
+                                <field name="remarks" placeholder="Technician Remarks..."/>
+                                <field name="installation_photo" widget="image" options="{'size': [150, 150]}"/>
+                            </group>
+                        </page>
+                        <page string="Sign-off"> <group>
+                                <field name="customer_signature" widget="signature"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_ro_installation_calendar" model="ir.ui.view">
+        <field name="name">ro.installation.calendar</field>
+        <field name="model">ro.installation</field>
+        <field name="arch" type="xml">
+            <calendar string="Installations" date_start="scheduled_date" color="status">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="assigned_to"/>
+            </calendar>
+        </field>
+    </record>
+
+    <record id="action_ro_installation_order" model="ir.actions.act_window">
+        <field name="name">Installation Orders</field>
+        <field name="res_model">ro.installation</field>
+        <field name="view_mode">tree,form,kanban,pivot,calendar,graph,activity</field>
+    </record>
+</odoo>
