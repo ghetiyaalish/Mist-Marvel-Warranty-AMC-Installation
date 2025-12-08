@@ -40,6 +40,69 @@ class ROAMC(models.Model):
     ], string="Contract Type", required=True, default='AMC-CAMC')
 
 
+    
+    duration_years = fields.Selection([
+        ('1', '1 Year'),
+        ('2', '2 Years'),
+        ('3', '3 Years'),
+        ('4', '4 Years'),
+        ('5', '5 Years')
+    ], string="Duration", default='1', required=True)
+
+    @api.onchange('start_date', 'duration_years')
+    def _onchange_duration(self):
+        """ 
+        Calculate End Date: Start Date + X Years - 1 Day 
+        Example: 
+        Start: 01-Jan-2025, Duration: 1 Year
+        End: 31-Dec-2025 (Not 01-Jan-2026)
+        """
+        if self.start_date and self.duration_years:
+            years = int(self.duration_years)
+            # Add years, then subtract 1 day
+            self.end_date = self.start_date + relativedelta(years=years) - relativedelta(days=1)
+
+    @api.onchange('product_id')
+    def _onchange_product_load_amc_limits(self):
+        """ Auto-load limits from Product Master """
+        if self.product_id:
+            # Clear old lines (Command 5)
+            new_lines = [(5, 0, 0)]
+            
+            # Get master limits
+            master_limits = self.product_id.product_tmpl_id.amc_part_limit_ids
+            
+            for limit in master_limits:
+                new_lines.append((0, 0, {
+                    'product_id': limit.part_id.id,
+                    'allowed_qty': limit.allowed_qty,
+                    'consumed_qty': 0.0,
+                }))
+            
+            self.coverage_ids = new_lines
+            
+            # Trigger date logic too
+            self._onchange_warranty_dates()
+            
+    
+    def update_consumption(self):
+        """ Recalculate consumed quantities based on done service orders """
+        for contract in self:
+            # Get all DONE orders
+            done_orders = contract.service_ids.filtered(lambda s: s.state in ['done', 'invoiced'])
+            
+            for coverage in contract.coverage_ids:
+                total_used = 0.0
+                for order in done_orders:
+                    for line in order.parts_line_ids:
+                        if line.product_id == coverage.product_id:
+                            # Total Qty - Chargeable Qty = Free Qty Used
+                            free_qty_used = line.qty - line.qty_chargeable
+                            total_used += max(0.0, free_qty_used)
+                
+                # Write the new total to the stored field
+                coverage.consumed_qty = total_used
+    
     def action_create_invoice(self):
         """ Generate Invoice for the AMC Contract Amount """
         if self.amount <= 0:
@@ -273,10 +336,14 @@ class ROAMCCoverage(models.Model):
     allowed_qty = fields.Float(string="Allowed Qty", default=1.0, help="Max free replacements allowed per year")
     consumed_qty = fields.Float(string="Consumed Qty", compute="_compute_consumed", store=True, 
                                help="Total quantity used so far (free replacements)")
+    # consumed_qty = fields.Float(string="Consumed Qty", default=0.0)
+    
     billed_qty = fields.Float(string="Billed Qty", compute="_compute_billed", store=True,
                              help="Total quantity billed to customer (chargeable replacements)")
     remaining_qty = fields.Float(string="Remaining Qty", compute="_compute_remaining_qty", store=True,
                                 help="Remaining free quantity available")
+
+  
     
     @api.depends('allowed_qty', 'consumed_qty')
     def _compute_remaining_qty(self):  # FIXED METHOD NAME - REMOVED EXTRA UNDERSCORE
@@ -291,14 +358,18 @@ class ROAMCCoverage(models.Model):
         """Compute total FREE quantity consumed"""
         for rec in self:
             total_free = 0.0
-            services = rec.amc_id.service_ids.filtered(lambda s: s.state in ['done', 'invoiced'])
+            # Get ALL done services for this AMC
+            services = rec.amc_id.service_ids.filtered(
+                lambda s: s.state in ['done', 'invoiced']
+            )
             
             for service in services:
                 for part in service.parts_line_ids:
                     if (part.product_id == rec.product_id and 
-                        not part.is_chargeable and
                         part.service_order_id.state in ['done', 'invoiced']):
-                        total_free += part.qty
+                        # Count the FREE portion (qty - qty_chargeable)
+                        free_qty = part.qty - part.qty_chargeable
+                        total_free += free_qty
             
             rec.consumed_qty = total_free
     
@@ -319,11 +390,39 @@ class ROAMCCoverage(models.Model):
             
             rec.billed_qty = total_billed
     
-    def get_remaining_qty(self, service_order):
+    # def get_remaining_qty(self, service_order):
+    #     """Get remaining free quantity for a specific service order"""
+    #     self.ensure_one()
+        
+    #     # Calculate total already consumed in previous services
+    #     previous_services = self.amc_id.service_ids.filtered(
+    #         lambda s: s.state in ['done', 'invoiced'] and s.id != service_order.id
+    #     )
+        
+    #     total_consumed = 0.0
+    #     # for service in previous_services:
+    #     #     for part in service.parts_line_ids:
+    #     #         if (part.product_id == self.product_id and 
+    #     #             not part.is_chargeable):
+    #     #             total_consumed += part.qty
+        
+    #     for service in previous_services:
+    #         for part in service.parts_line_ids:
+    #             if part.product_id == self.product_id:
+    #                 # Count only FREE portion
+    #                 free_qty = part.qty - part.qty_chargeable
+    #                 total_consumed += free_qty
+        
+    #     # Calculate remaining
+    #     remaining = self.allowed_qty - total_consumed
+    #     return max(0, remaining)
+    
+    
+    def get_remaining_for_service(self, service_order):
         """Get remaining free quantity for a specific service order"""
         self.ensure_one()
         
-        # Calculate total already consumed in previous services
+        # Calculate total already consumed in previous DONE services
         previous_services = self.amc_id.service_ids.filtered(
             lambda s: s.state in ['done', 'invoiced'] and s.id != service_order.id
         )
@@ -331,9 +430,10 @@ class ROAMCCoverage(models.Model):
         total_consumed = 0.0
         for service in previous_services:
             for part in service.parts_line_ids:
-                if (part.product_id == self.product_id and 
-                    not part.is_chargeable):
-                    total_consumed += part.qty
+                if part.product_id == self.product_id:
+                    # Count only FREE portion
+                    free_qty = part.qty - part.qty_chargeable
+                    total_consumed += free_qty
         
         # Calculate remaining
         remaining = self.allowed_qty - total_consumed

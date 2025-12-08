@@ -24,6 +24,19 @@
                     </p>
                 </page>
             </notebook>
+            <notebook position="inside">
+                <page string="AMC Part Limits">
+                    <field name="amc_part_limit_ids">
+                        <tree editable="bottom">
+                            <field name="part_id"/>
+                            <field name="allowed_qty"/>
+                        </tree>
+                    </field>
+                    <p class="text-muted">
+                        * These limits will be automatically copied to new AMC Contracts.
+                    </p>
+                </page>
+            </notebook>
             
             </field>
     </record>

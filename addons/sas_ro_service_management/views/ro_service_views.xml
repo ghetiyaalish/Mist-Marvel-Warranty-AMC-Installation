@@ -4,11 +4,25 @@
         <field name="name">ro.service.order.tree</field>
         <field name="model">ro.service.order</field>
         <field name="arch" type="xml">
-            <tree>
+            <!-- <tree>
                 <field name="name" optional="show"/>
                 <field name="partner_id" optional="show"/>
                 <field name="scheduled_date" optional="show"/>
                 <field name="state" optional="show"/>
+                <field name="chargeable" optional="show"/>
+            </tree> -->
+
+            <tree>
+                <field name="name" optional="show"/>
+                <field name="partner_id" optional="show"/>
+                <field name="product_id" optional="show"/>
+                <field name="partner_address" optional="hide"/> 
+                <field name="warranty_id" optional="hide"/>
+                <field name="contract_id" optional="hide"/>
+                <field name="scheduled_date" optional="show"/>
+                <field name="assigned_to" optional="show"/>
+                <field name="issue_type" optional="show"/>
+                <field name="state" optional="show" widget="badge" decoration-success="state == 'done'"/>
                 <field name="chargeable" optional="show"/>
             </tree>
         </field>
@@ -50,7 +64,12 @@
                             invisible="state in ('done','invoiced','cancelled')" class="oe_highlight"/>
                     <button name="action_create_invoice" string="Create Invoice" type="object" 
                             invisible="not chargeable or state in ('invoiced','cancelled','new')"/>
-                    <field name="state" widget="statusbar"/>
+                    <field name="state" widget="statusbar" />
+                    <button name="action_reset_to_new"
+                        string="Reset to New"
+                        type="object"
+                        class="btn btn-secondary"
+                        modifiers='{"invisible": [["state", "=", "new"]]}'/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -59,9 +78,10 @@
                     <group>
                         <group>
                             <field name="partner_id"/>
+                            <field name="partner_address"/>
                             <field name="product_id"/>
                             <field name="warranty_id"/>
-                            <field name="warranty_coverage" invisible="not warranty_id"/>
+                            <!-- <field name="warranty_coverage" invisible="not warranty_id"/> -->
                             <field name="contract_id"/>
                         </group>
                         <group>

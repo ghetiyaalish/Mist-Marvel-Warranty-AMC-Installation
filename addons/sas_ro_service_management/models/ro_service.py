@@ -47,6 +47,8 @@ class ROServiceOrder(models.Model):
 
     name = fields.Char(string='Reference', required=True, copy=False, readonly=True, default='New')
     partner_id = fields.Many2one('res.partner', string='Customer', required=True)
+    # partner_address = fields.Char(related='partner_id.contact_address', string="Address",store=True)
+    partner_address = fields.Char(string="Address")
     contract_id = fields.Many2one('ro.amc', string='AMC Contract')
     warranty_id = fields.Many2one('ro.warranty', string='Warranty')
     product_id = fields.Many2one('product.product', string='Product')
@@ -89,7 +91,103 @@ class ROServiceOrder(models.Model):
     
     chargeable = fields.Boolean(string='Chargeable', default=False, help="If True, create invoice")
  
+    
+    # --- AUTO-FILL LOGIC ---
+    @api.onchange('partner_id')
+    def _onchange_partner_id(self):
+        """ 
+        1. Auto-fill Address
+        2. Filter Product List to only show machines owned by this customer
+        3. If only one machine exists, auto-select it.
+        """
+        if self.partner_id:
+            # 1. Address
+            self.partner_address = self.partner_id.contact_address
+            
+            # 2. Find owned products (from Warranties & AMCs)
+            warranties = self.env['ro.warranty'].search([('partner_id', '=', self.partner_id.id)])
+            amcs = self.env['ro.amc'].search([('partner_id', '=', self.partner_id.id)])
+            
+            # Gather unique product IDs
+            owned_product_ids = warranties.mapped('product_id.id') + amcs.mapped('product_id.id')
+            owned_product_ids = list(set(owned_product_ids)) # Remove duplicates
+            domain = {'product_id': [('id', 'in', owned_product_ids)]}
+            # 4. Auto-select if only one exists
+            if len(owned_product_ids) == 1:
+                self.product_id = owned_product_ids[0]
+                # Trigger the next logic manually
+                self._onchange_product_id_auto_fill()
+            else:
+                self.product_id = False
+                self.warranty_id = False
+                self.contract_id = False
 
+            return {'domain': domain}
+        else:
+            return {'domain': {'product_id': []}}
+
+    @api.onchange('product_id')
+    def _onchange_product_id_auto_fill(self):
+        """ 
+        When Product is selected (manually or auto):
+        Auto-select the Active Warranty OR Active AMC.
+        """
+        if self.partner_id and self.product_id:
+            today = fields.Date.today()
+            
+            # 1. Look for Active Warranty
+            warranty = self.env['ro.warranty'].search([
+                ('partner_id', '=', self.partner_id.id),
+                ('product_id', '=', self.product_id.id),
+                ('state', '=', 'active'),
+                ('start_date', '<=', today),
+                ('end_date', '>=', today)
+            ], limit=1, order='end_date desc')
+            
+            if warranty:
+                self.warranty_id = warranty.id
+                self.contract_id = False
+                return # Stop here, Warranty takes priority
+
+            # 2. Look for Active AMC (if no warranty)
+            amc = self.env['ro.amc'].search([
+                ('partner_id', '=', self.partner_id.id),
+                ('product_id', '=', self.product_id.id),
+                ('state', '=', 'active'),
+                ('start_date', '<=', today),
+                ('end_date', '>=', today)
+            ], limit=1, order='end_date desc')
+            
+            if amc:
+                self.contract_id = amc.id
+                self.warranty_id = False
+            else:
+                # Reset if neither found
+                self.warranty_id = False
+                self.contract_id = False
+    
+    
+    def update_amc_consumption(self):
+        """Update AMC consumed quantities for this service order"""
+        if not self.contract_id or self.state not in ['done', 'invoiced']:
+            return
+        
+        for part_line in self.parts_line_ids:
+            if not part_line.is_chargeable:
+                # Find the coverage line for this part
+                coverage = self.contract_id.coverage_ids.filtered(
+                    lambda c: c.product_id == part_line.product_id
+                )
+                if coverage:
+                    # Force update by triggering computation
+                    coverage._compute_consumed()
+        
+        # Also recompute remaining quantities
+        self.contract_id.coverage_ids._compute_remaining_qty()
+    
+
+    def action_reset_to_new(self):
+        self.state = 'new'
     
     # --- THE BRAIN: LOGIC FOR WARRANTY & AMC ---
     # @api.onchange('parts_line_ids', 'warranty_id', 'contract_id' )
@@ -282,6 +380,23 @@ class ROServiceOrder(models.Model):
     @api.onchange('parts_line_ids', 'warranty_id', 'contract_id')
     def _check_part_coverage(self):
         today = fields.Date.today()
+        
+         # FIRST PASS: Calculate ALL remaining quantities BEFORE making decisions
+        remaining_by_product = {}
+        if self.contract_id and self.contract_id.state == 'active':
+            for line in self.parts_line_ids:
+                coverage = self.contract_id.coverage_ids.filtered(
+                    lambda r: r.product_id == line.product_id
+                )
+                if coverage:
+                    # Calculate initial remaining for each product
+                    remaining = coverage.get_remaining_for_service(self)
+                    remaining_by_product[line.product_id.id] = {
+                        'coverage': coverage,
+                        'remaining': remaining,
+                        'used_in_this_order': 0.0  # Track free qty used in current order
+                    }
+        
         has_chargeable_part = False  # Add this flag
 
         for line in self.parts_line_ids:
@@ -333,49 +448,51 @@ class ROServiceOrder(models.Model):
                         line.charge_reason = "This part is not under warranty and main warranty has expired"
                         has_chargeable_part = True
 
-            # 2. AMC LOGIC (Usage Limits)
+            # 2. AMC LOGIC (Usage Limits) - FIXED VERSION
             elif self.contract_id and self.contract_id.state == 'active':
-                limit_rule = self.contract_id.coverage_ids.filtered(lambda r: r.product_id == line.product_id)
+                product_id = line.product_id.id
                 
-                if limit_rule:
-                    remaining = limit_rule.allowed_qty - limit_rule.consumed_qty
-                    # if line.qty <= max(0, remaining):
-                    #     # Within AMC limit
-                    #     line.is_chargeable = False
-                    #     line.qty_chargeable = 0.0
-                    #     line.charge_reason = "Covered under AMC"
-                    # else:
-                    #     # AMC limit exceeded
-                    #     line.is_chargeable = True
-                    #     free_qty = max(0, remaining)
-                    #     line.qty_chargeable = line.qty - free_qty
-                    #     line.charge_reason = f"AMC Limit Reached. Allowed: {limit_rule.allowed_qty}. Paying for {line.qty_chargeable}."
-                    #     has_chargeable_part = True
-                    _logger.info(f"Part: {line.product_id.name}, Allowed: {limit_rule.allowed_qty}, "
-                                f"Consumed: {limit_rule.consumed_qty}, Remaining: {remaining}, "
-                                f"Qty needed: {line.qty}")
+                if product_id in remaining_by_product:
+                    coverage = remaining_by_product[product_id]['coverage']
+                    remaining = remaining_by_product[product_id]['remaining']
+                    already_used_in_order = remaining_by_product[product_id]['used_in_this_order']
                     
-                    if remaining <= 0:
+                    # Calculate ACTUALLY available for this specific line
+                    actually_available = remaining - already_used_in_order
+                    
+                    _logger.info(f"[AMC CALC] Part: {line.product_id.name}")
+                    _logger.info(f"  - Allowed: {coverage.allowed_qty}")
+                    _logger.info(f"  - Remaining before this order: {remaining}")
+                    _logger.info(f"  - Already used in this order: {already_used_in_order}")
+                    _logger.info(f"  - Actually available: {actually_available}")
+                    _logger.info(f"  - Qty needed: {line.qty}")
+                    
+                    if actually_available <= 0:
                         # No free quantity left - ALL are chargeable
                         line.is_chargeable = True
                         line.qty_chargeable = line.qty
-                        line.charge_reason = f"AMC Limit Reached. Allowed: {limit_rule.allowed_qty}. Paying for all {line.qty} units."
+                        line.charge_reason = f"AMC Limit Reached. Allowed: {coverage.allowed_qty}. Paying for all {line.qty} units."
                         has_chargeable_part = True
                         
-                    elif line.qty <= remaining:
-                        # All units are within remaining limit - ALL are free
+                    elif line.qty <= actually_available:
+                        # All units are within available limit - ALL are free
                         line.is_chargeable = False
                         line.qty_chargeable = 0.0
-                        line.charge_reason = f"Covered under AMC (Remaining: {remaining - line.qty})"
+                        line.charge_reason = f"Covered under AMC (Remaining: {actually_available - line.qty})"
+                        # Track that we've used this free quantity in current order
+                        remaining_by_product[product_id]['used_in_this_order'] += line.qty
                         
                     else:
                         # Partial coverage: some free, some chargeable
                         line.is_chargeable = True
-                        free_qty = remaining
+                        free_qty = actually_available
                         line.qty_chargeable = line.qty - free_qty
-                        line.charge_reason = f"AMC Limit Reached. Allowed: {limit_rule.allowed_qty}. Free: {free_qty}, Paying for: {line.qty_chargeable}."
+                        line.charge_reason = f"AMC Limit Reached. Allowed: {coverage.allowed_qty}. Free: {free_qty}, Paying for: {line.qty_chargeable}."
                         has_chargeable_part = True
-    
+                        # Track that we've used free quantity
+                        if free_qty > 0:
+                            remaining_by_product[product_id]['used_in_this_order'] += free_qty
+
                 else:
                     # Part not covered in AMC
                     line.is_chargeable = True
@@ -385,14 +502,12 @@ class ROServiceOrder(models.Model):
 
             # 3. NO WARRANTY OR AMC (Direct Chargeable)
             elif not self.warranty_id and not self.contract_id:
-                # No warranty or AMC at all
                 line.is_chargeable = True
                 line.qty_chargeable = line.qty
                 line.charge_reason = "No active warranty or AMC"
                 has_chargeable_part = True
 
-        # ===== CRITICAL FIX: Update main chargeable checkbox =====
-        # This should be OUTSIDE the for loop
+        # Update main chargeable checkbox
         if has_chargeable_part:
             self.chargeable = True
         else:
@@ -409,19 +524,104 @@ class ROServiceOrder(models.Model):
             if self.warranty_id.coverage == 'labor' and self.parts_line_ids:
                 self.chargeable = True 
                 return {'warning': {'title': "Coverage Limit", 'message': "Warranty covers Labor Only. Parts are chargeable."}}
+                
+
+
+            # 2. AMC LOGIC (Usage Limits)
+        #     elif self.contract_id and self.contract_id.state == 'active':
+        #         limit_rule = self.contract_id.coverage_ids.filtered(lambda r: r.product_id == line.product_id)
+                
+        #         if limit_rule:
+        #             remaining = limit_rule.get_remaining_qty(self)
+        #             # if line.qty <= max(0, remaining):
+        #             #     # Within AMC limit
+        #             #     line.is_chargeable = False
+        #             #     line.qty_chargeable = 0.0
+        #             #     line.charge_reason = "Covered under AMC"
+        #             # else:
+        #             #     # AMC limit exceeded
+        #             #     line.is_chargeable = True
+        #             #     free_qty = max(0, remaining)
+        #             #     line.qty_chargeable = line.qty - free_qty
+        #             #     line.charge_reason = f"AMC Limit Reached. Allowed: {limit_rule.allowed_qty}. Paying for {line.qty_chargeable}."
+        #             #     has_chargeable_part = True
+        #             _logger.info(f"Part: {line.product_id.name}, Allowed: {limit_rule.allowed_qty}, "
+        #                         f"Consumed: {limit_rule.consumed_qty}, Remaining: {remaining}, "
+        #                         f"Qty needed: {line.qty}")
+                    
+        #             if remaining <= 0:
+        #                 # No free quantity left - ALL are chargeable
+        #                 line.is_chargeable = True
+        #                 line.qty_chargeable = line.qty
+        #                 line.charge_reason = f"AMC Limit Reached. Allowed: {limit_rule.allowed_qty}. Paying for all {line.qty} units."
+        #                 has_chargeable_part = True
+                        
+        #             elif line.qty <= remaining:
+        #                 # All units are within remaining limit - ALL are free
+        #                 line.is_chargeable = False
+        #                 line.qty_chargeable = 0.0
+        #                 line.charge_reason = f"Covered under AMC (Remaining: {remaining - line.qty})"
+                        
+        #             else:
+        #                 # Partial coverage: some free, some chargeable
+        #                 line.is_chargeable = True
+        #                 free_qty = remaining
+        #                 line.qty_chargeable = line.qty - free_qty
+        #                 line.charge_reason = f"AMC Limit Reached. Allowed: {limit_rule.allowed_qty}. Free: {free_qty}, Paying for: {line.qty_chargeable}."
+        #                 has_chargeable_part = True
+    
+        #         else:
+        #             # Part not covered in AMC
+        #             line.is_chargeable = True
+        #             line.qty_chargeable = line.qty
+        #             line.charge_reason = "Part not covered in AMC"
+        #             has_chargeable_part = True
+
+        #     # 3. NO WARRANTY OR AMC (Direct Chargeable)
+        #     elif not self.warranty_id and not self.contract_id:
+        #         # No warranty or AMC at all
+        #         line.is_chargeable = True
+        #         line.qty_chargeable = line.qty
+        #         line.charge_reason = "No active warranty or AMC"
+        #         has_chargeable_part = True
+
+        # # ===== CRITICAL FIX: Update main chargeable checkbox =====
+        # # This should be OUTSIDE the for loop
+        # if has_chargeable_part:
+        #     self.chargeable = True
+        # else:
+        #     self.chargeable = False
+        
+        # # System Alert Popups
+        # if self.warranty_id:
+        #     if self.warranty_id.state != 'active':
+        #         self.chargeable = True
+        #         return {'warning': {'title': "Invalid Warranty", 'message': "Warranty is NOT Active."}}
+        #     if self.warranty_id.end_date < today:
+        #         self.chargeable = True
+        #         return {'warning': {'title': "Warranty Expired", 'message': "Warranty has expired."}}
+        #     if self.warranty_id.coverage == 'labor' and self.parts_line_ids:
+        #         self.chargeable = True 
+        #         return {'warning': {'title': "Coverage Limit", 'message': "Warranty covers Labor Only. Parts are chargeable."}}
     
         
+    # @api.onchange('parts_line_ids')
+    # def _onchange_parts_line_ids(self):
+    #     """Ensure main chargeable checkbox updates when parts change"""
+    #     # Check if any part is chargeable
+    #     if self.parts_line_ids:
+    #         any_chargeable = any(line.is_chargeable for line in self.parts_line_ids)
+    #         if any_chargeable:
+    #             self.chargeable = True
+    #         elif self.warranty_id and self.warranty_id.state == 'active':
+    #             # If all parts are under warranty, uncheck
+    #             self.chargeable = False
+    
     @api.onchange('parts_line_ids')
     def _onchange_parts_line_ids(self):
-        """Ensure main chargeable checkbox updates when parts change"""
-        # Check if any part is chargeable
-        if self.parts_line_ids:
-            any_chargeable = any(line.is_chargeable for line in self.parts_line_ids)
-            if any_chargeable:
-                self.chargeable = True
-            elif self.warranty_id and self.warranty_id.state == 'active':
-                # If all parts are under warranty, uncheck
-                self.chargeable = False
+        """Handle when parts are added/removed - ensure proper recalculation"""
+        # Trigger the main coverage check
+        self._check_part_coverage()
                 
                 
     # System Alert Popups
@@ -500,8 +700,90 @@ class ROServiceOrder(models.Model):
     #     self.write({'state': 'done', 'done_date': fields.Date.today()})
     
     
+    # def action_complete(self):
+    #     """ Deduct Inventory and Close Order - FIXED FOR ODOO 17 """
+    #     if self.parts_line_ids:
+    #         # 1. Get outgoing picking type
+    #         picking_type = self.env['stock.picking.type'].search([
+    #             ('code', '=', 'outgoing'),
+    #             ('warehouse_id.company_id', 'in', [self.env.company.id, False])
+    #         ], limit=1)
+    #         if not picking_type:
+    #             raise UserError("No outgoing picking type found for current company.")
+
+    #         # 2. Create Delivery Order
+    #         picking = self.env['stock.picking'].create({
+    #             'partner_id': self.partner_id.id,
+    #             'picking_type_id': picking_type.id,
+    #             'location_id': picking_type.default_location_src_id.id,
+    #             'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #             'origin': self.name,
+    #             'move_type': 'direct',  # Important for immediate transfer
+    #         })
+
+    #         # 3. Create stock moves
+    #         moves_to_do = []
+    #         for line in self.parts_line_ids.filtered(lambda l: l.qty > 0):
+    #             move = self.env['stock.move'].create({
+    #                 'name': line.product_id.display_name,
+    #                 'product_id': line.product_id.id,
+    #                 'product_uom_qty': line.qty,
+    #                 'product_uom': line.product_id.uom_id.id,
+    #                 'picking_id': picking.id,
+    #                 'location_id': picking_type.default_location_src_id.id,
+    #                 'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #                 'state': 'draft',
+    #             })
+    #             moves_to_do.append(move)
+
+    #         if not moves_to_do:
+    #             # No parts, just close
+    #             self.write({'state': 'done', 'done_date': fields.Date.today()})
+    #             return
+
+    #         # 4. Confirm & Assign (reserve stock)
+    #         picking.action_confirm()
+    #         picking.action_assign()
+
+    #         # THE HERO LINES - THIS IS WHAT MAKES IT "DONE" INSTANTLY
+    #         for move in picking.move_ids_without_package:
+    #             # Option A: Best & Cleanest (Odoo 17+ recommended)
+    #             move.move_line_ids.write({'quantity': move.product_uom_qty})
+                
+    #             # Option B: Alternative (if no move lines exist, create them)
+    #             if not move.move_line_ids:
+    #                 self.env['stock.move.line'].create({
+    #                     'move_id': move.id,
+    #                     'product_id': move.product_id.id,
+    #                     'product_uom_id': move.product_uom.id,
+    #                     'quantity': move.product_uom_qty,
+    #                     'location_id': move.location_id.id,
+    #                     'location_dest_id': move.location_dest_id.id,
+    #                     'picking_id': picking.id,
+    #                 })
+    #             else:
+    #                 move.move_line_ids.write({'quantity': move.product_uom_qty})
+
+    #         # 6. Validate picking - Stock will be deducted IMMEDIATELY
+    #         picking.with_context(skip_immediate=True).button_validate()
+
+    #     # 7. Mark service order as Done
+    #     self.write({'state': 'done', 'done_date': fields.Date.today()})
+        
+    #     if self.contract_id:
+    #     # Invalidate cache to force fresh computation
+    #         self.contract_id.coverage_ids.invalidate_cache(['consumed_qty', 'remaining_qty'])
+    #         # Trigger recomputation
+    #         self.contract_id.coverage_ids._compute_consumed()
+    #         self.contract_id.coverage_ids._compute_remaining_qty()
+        
+    #     return True
+        
+
+    
     def action_complete(self):
         """ Deduct Inventory and Close Order - FIXED FOR ODOO 17 """
+        # ... (Keep all existing Inventory/Stock Deduction Code here) ...
         if self.parts_line_ids:
             # 1. Get outgoing picking type
             picking_type = self.env['stock.picking.type'].search([
@@ -539,18 +821,17 @@ class ROServiceOrder(models.Model):
             if not moves_to_do:
                 # No parts, just close
                 self.write({'state': 'done', 'done_date': fields.Date.today()})
+                # Check for AMC update even if no parts were moved (e.g. labor only)
+                if self.contract_id:
+                    self.contract_id.update_consumption() 
                 return
 
             # 4. Confirm & Assign (reserve stock)
             picking.action_confirm()
             picking.action_assign()
 
-            # THE HERO LINES - THIS IS WHAT MAKES IT "DONE" INSTANTLY
+            # 5. Set Done Quantities and Validate
             for move in picking.move_ids_without_package:
-                # Option A: Best & Cleanest (Odoo 17+ recommended)
-                move.move_line_ids.write({'quantity': move.product_uom_qty})
-                
-                # Option B: Alternative (if no move lines exist, create them)
                 if not move.move_line_ids:
                     self.env['stock.move.line'].create({
                         'move_id': move.id,
@@ -562,14 +843,21 @@ class ROServiceOrder(models.Model):
                         'picking_id': picking.id,
                     })
                 else:
+                    # Update existing move lines
                     move.move_line_ids.write({'quantity': move.product_uom_qty})
 
-            # 6. Validate picking - Stock will be deducted IMMEDIATELY
+            # 6. Validate picking
             picking.with_context(skip_immediate=True).button_validate()
 
         # 7. Mark service order as Done
         self.write({'state': 'done', 'done_date': fields.Date.today()})
-
+        
+        # --- CRITICAL FIX: Explicitly call the update method ---
+        if self.contract_id:
+            # This calls the method we defined in ro.amc to calculate consumed_qty
+            self.contract_id.update_consumption() 
+        
+        return True
     
     def action_create_invoice(self):
         """ Create Invoice for Chargeable Services """

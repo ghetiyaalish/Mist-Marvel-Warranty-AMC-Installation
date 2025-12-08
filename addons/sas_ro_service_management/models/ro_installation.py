@@ -156,7 +156,7 @@ class ROInstallation(models.Model):
             months = int(warranty.product_id.warranty_months or 12)
             warranty.write({
                 'start_date': today,
-                'end_date': today + relativedelta(months=months),
+                'end_date': today + relativedelta(months=months) - relativedelta(days=1),
                 'state': 'active',
                 'lot_id': self.lot_id.id,
             })

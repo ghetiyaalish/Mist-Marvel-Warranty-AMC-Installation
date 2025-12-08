@@ -46,6 +46,12 @@ class ROWarranty(models.Model):
     # Fixed Type for Warranty
     contract_type = fields.Char(string="Contract Type", default="WARRANTY", readonly=True)
 
+    @api.onchange('start_date', 'product_id')
+    def _onchange_dates(self):
+        if self.start_date and self.product_id and self.product_id.warranty_months:
+            # Auto-set end date based on product rule
+            self.end_date = self.start_date + relativedelta(months=self.product_id.warranty_months) - relativedelta(days=1)
+
     @api.depends('state', 'end_date')
     def _compute_contract_status(self):
         today = fields.Date.today()

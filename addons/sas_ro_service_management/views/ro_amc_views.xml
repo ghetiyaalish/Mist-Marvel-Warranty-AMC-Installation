@@ -61,8 +61,10 @@
                         <group>
                             <field name="invoice_id" invisible="1"/>
                             <field name="partner_id"/>
-                            <field name="product_id"/> <field name="start_date"/>
-                            <field name="end_date"/>
+                            <field name="product_id"/>
+                            <field name="start_date"/>
+                            <field name="duration_years"/>
+                            <field name="end_date" force_save="1" />
                         </group>
                         <group>
                             <field name="frequency"/>

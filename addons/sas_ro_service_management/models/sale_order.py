@@ -44,7 +44,7 @@ class SaleOrder(models.Model):
                         'sale_id': order.id,
                         'product_id': line.product_id.id,
                         'start_date': fields.Date.today(),
-                        'end_date': fields.Date.today() + relativedelta(months=line.product_id.warranty_months),
+                        'end_date': fields.Date.today() + relativedelta(months=line.product_id.warranty_months) - relativedelta(days=1),
                         'state': warranty_state  # Use the variable we set above
                     })
         return res

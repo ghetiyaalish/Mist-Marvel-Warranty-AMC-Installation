@@ -4,11 +4,27 @@
         <field name="name">ro.installation.tree</field>
         <field name="model">ro.installation</field>
         <field name="arch" type="xml">
-            <tree>
+            <!-- <tree>
                 <field name="name" optional="show"/>
                 <field name="partner_id" optional="show"/>
                 <field name="scheduled_date" optional="show"/>
                 <field name="status" optional="show"/>
+            </tree> -->
+
+            <tree>
+                <field name="name" optional="show"/>
+                <field name="partner_id" optional="show" />
+                <field name="product_id" optional="show"/>
+                <field name="lot_id" optional="show"/>
+                <field name="sale_id" optional="hide"/> <field name="location" optional="hide"/>
+                <field name="scheduled_date" optional="show"/>
+                <field name="assigned_to" optional="show"/>
+                <field name="done_date" optional="show"/>
+                <field name="status" optional="show" widget="badge" 
+                       decoration-success="status == 'done'" 
+                       decoration-info="status == 'assigned'"
+                       decoration-muted="status == 'cancelled'"/>
+
             </tree>
         </field>
     </record>
