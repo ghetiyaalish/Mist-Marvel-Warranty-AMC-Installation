@@ -16,3 +16,7 @@ access_ro_amc_coverage,ro.amc.coverage,model_ro_amc_coverage,base.group_user,1,1
 access_ro_machine_master,ro.machine.master,model_ro_machine_master,base.group_user,1,0,0,0
 access_product_component_warranty,product.component.warranty,model_product_component_warranty,base.group_user,1,1,1,1
 access_product_amc_limit,product.amc.limit,model_product_amc_limit,base.group_user,1,1,1,1
+access_ro_van_stock_mgr,ro.van.stock.mgr,model_ro_van_stock,group_ro_manager,1,1,1,1
+access_ro_van_stock_line_mgr,ro.van.stock.line.mgr,model_ro_van_stock_line,group_ro_manager,1,1,1,1
+access_ro_van_stock_tech,ro.van.stock.tech,model_ro_van_stock,group_ro_technician,1,0,0,0
+access_ro_van_stock_line_tech,ro.van.stock.line.tech,model_ro_van_stock_line,group_ro_technician,1,0,0,0

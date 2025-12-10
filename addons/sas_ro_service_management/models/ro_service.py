@@ -51,7 +51,14 @@ class ROServiceOrder(models.Model):
     partner_address = fields.Char(string="Address")
     contract_id = fields.Many2one('ro.amc', string='AMC Contract')
     warranty_id = fields.Many2one('ro.warranty', string='Warranty')
-    product_id = fields.Many2one('product.product', string='Product')
+    
+    # product_id = fields.Many2one('product.product', string='Product' )
+    product_id = fields.Many2one(
+        'product.product', 
+        string='Product'
+    )
+    allowed_product_ids = fields.Many2many('product.product', string="Allowed Products", compute='_compute_allowed_products', store=False)
+    
     
     reported_date = fields.Date(string='Reported Date', default=fields.Date.context_today)
     scheduled_date = fields.Date(string='Scheduled Date')
@@ -91,40 +98,79 @@ class ROServiceOrder(models.Model):
     
     chargeable = fields.Boolean(string='Chargeable', default=False, help="If True, create invoice")
  
+ 
+    @api.model
+    def _cron_schedule_so_reminders(self):
+        """
+        Check for Service Orders scheduled for TOMORROW (Today + 1 Day)
+        and assign an activity to the technician.
+        """
+        today = date.today()
+        target_date = today + timedelta(days=1)  # Target is tomorrow
+
+        # Find orders scheduled for tomorrow that are not yet Done/Cancelled
+        # Adjust 'state' values based on your workflow (e.g., 'draft', 'confirmed', 'in_progress')
+        orders_due_tomorrow = self.search([
+            ('service_date', '=', target_date),
+            ('state', 'not in', ['done', 'cancel']), 
+        ])
+
+        for order in orders_due_tomorrow:
+            # Only create activity if a technician is assigned
+            if order.technician_id:
+                order.activity_schedule(
+                    'mail.mail_activity_data_todo',
+                    user_id=order.technician_id.id,
+                    note=f"Reminder: Service Order {order.name} is scheduled for tomorrow ({order.service_date}).",
+                    summary="Upcoming Service Order"
+                )
+                
+ 
+    # --- LOGIC TO POPULATE THE FILTER LIST ---
+    @api.depends('partner_id')
+    def _compute_allowed_products(self):
+        for rec in self:
+            if rec.partner_id:
+                warranties = self.env['ro.warranty'].search([('partner_id', '=', rec.partner_id.id)])
+                amcs = self.env['ro.amc'].search([('partner_id', '=', rec.partner_id.id)])
+                owned_ids = warranties.mapped('product_id.id') + amcs.mapped('product_id.id')
+                rec.allowed_product_ids = [(6, 0, list(set(owned_ids)))]
+            else:
+                rec.allowed_product_ids = [(5, 0, 0)]
+    
+    
     
     # --- AUTO-FILL LOGIC ---
     @api.onchange('partner_id')
     def _onchange_partner_id(self):
         """ 
-        1. Auto-fill Address
-        2. Filter Product List to only show machines owned by this customer
-        3. If only one machine exists, auto-select it.
+        1. Auto-fill Address (Editable)
+        2. Auto-select Product if only one exists
         """
         if self.partner_id:
             # 1. Address
             self.partner_address = self.partner_id.contact_address
             
-            # 2. Find owned products (from Warranties & AMCs)
+            # 2. Check how many products they own
+            # Note: allowed_product_ids is computed, but inside onchange we might need to access the source directly
             warranties = self.env['ro.warranty'].search([('partner_id', '=', self.partner_id.id)])
             amcs = self.env['ro.amc'].search([('partner_id', '=', self.partner_id.id)])
+            owned_ids = list(set(warranties.mapped('product_id.id') + amcs.mapped('product_id.id')))
             
-            # Gather unique product IDs
-            owned_product_ids = warranties.mapped('product_id.id') + amcs.mapped('product_id.id')
-            owned_product_ids = list(set(owned_product_ids)) # Remove duplicates
-            domain = {'product_id': [('id', 'in', owned_product_ids)]}
-            # 4. Auto-select if only one exists
-            if len(owned_product_ids) == 1:
-                self.product_id = owned_product_ids[0]
-                # Trigger the next logic manually
+            # 3. Auto-select if only one exists
+            if len(owned_ids) == 1:
+                self.product_id = owned_ids[0]
                 self._onchange_product_id_auto_fill()
             else:
                 self.product_id = False
                 self.warranty_id = False
                 self.contract_id = False
-
-            return {'domain': domain}
         else:
-            return {'domain': {'product_id': []}}
+            self.product_id = False
+            self.partner_address = False
+    
+    
+    
 
     @api.onchange('product_id')
     def _onchange_product_id_auto_fill(self):

@@ -43,7 +43,7 @@
         <field name="res_model">ro.service.part.line</field>
         <field name="view_mode">tree,pivot</field>
         <field name="view_id" ref="view_ro_part_line_legacy_tree"/>
-        <field name="context">{'search_default_today': 1}</field>
+        <field name="context">{'search_default_today': 0}</field>
     </record>
 
 
@@ -170,7 +170,7 @@
         <field name="view_mode">tree,form</field>
         <field name="view_id" ref="view_ro_technician_collection_tree"/>
         <field name="domain">[('move_type', '=', 'out_invoice')]</field>
-        <field name="context">{'group_by': 'ro_technician_id'}</field>
+        <field name="context">{'group_by': ''}</field>
     </record>
 
     <menuitem id="menu_ro_legacy_root" name="Dashboard" parent="menu_ro_root" sequence="5"/>

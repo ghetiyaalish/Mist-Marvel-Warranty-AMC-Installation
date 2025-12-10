@@ -20,7 +20,30 @@
             <field name="interval_type">days</field>
             <field name="numbercall">-1</field>
             <field name="doall" eval="False"/>
-        </record>
+    </record>
+
+    <record id="ir_cron_amc_service_reminder" model="ir.cron">
+            <field name="name">AMC: Service Reminder Check</field>
+            <field name="model_id" ref="model_ro_amc"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_schedule_service_reminders()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+    </record>
+
+    <record id="ir_cron_so_reminder_check" model="ir.cron">
+            <field name="name">Service Order: 1-Day Prior Reminder</field>
+            <field name="model_id" ref="model_ro_service_order"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_schedule_so_reminders()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="doall" eval="False"/>
+    </record>
+
 
     <!-- <record id="ir_cron_warranty_reminder" model="ir.cron">
             <field name="name">RO: Send Warranty Expiry Emails</field>

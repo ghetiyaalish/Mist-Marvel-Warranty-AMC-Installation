@@ -8,8 +8,7 @@ class ROMachineMaster(models.Model):
     _rec_name = 'product_id'
     _allow_sudo_commands = False
 
-
-
+    
     @api.model
     def create(self, vals):
         raise UserError(_("Creating records in Machine Master view is not allowed. This is a read-only reporting view."))

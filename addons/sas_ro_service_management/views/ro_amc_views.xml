@@ -68,6 +68,7 @@
                         </group>
                         <group>
                             <field name="frequency"/>
+                            <!-- <field name="next_service_date" readonly="1" force_save="1"/> -->
                             <field name="contract_type"/>
                             <field name="amount"/>
                             <field name="technician_id"/>

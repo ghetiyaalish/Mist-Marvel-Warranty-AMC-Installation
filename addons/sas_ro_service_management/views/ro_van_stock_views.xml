@@ -1,0 +1,43 @@
+<odoo>
+    <record id="view_ro_van_stock_form" model="ir.ui.view">
+        <field name="name">ro.van.stock.form</field>
+        <field name="model">ro.van.stock</field>
+        <field name="arch" type="xml">
+            <form string="Technician Stock">
+                <header>
+                    <button name="action_replenish_stock" 
+                            string="Replenish Missing Stock" 
+                            type="object" 
+                            class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="technician_id"/>
+                        <field name="location_id"/>
+                    </group>
+                    <notebook>
+                        <page string="Stock Configuration">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="target_qty"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ro_van_stock" model="ir.actions.act_window">
+        <field name="name">Technician Stock Config</field>
+        <field name="res_model">ro.van.stock</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_ro_van_stock" 
+              name="Technician Stock" 
+              parent="stock.menu_stock_root" 
+              action="action_ro_van_stock"/>
+</odoo>

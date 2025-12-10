@@ -52,7 +52,10 @@
                 </group>
             </search>
         </field>
-    </record>
+    </record> 
+
+
+    
 
     <record id="view_ro_service_order_form" model="ir.ui.view">
         <field name="name">ro.service.order.form</field>
@@ -77,9 +80,10 @@
                     </div>
                     <group>
                         <group>
+                            <field name="allowed_product_ids" invisible="1"/>
                             <field name="partner_id"/>
                             <field name="partner_address"/>
-                            <field name="product_id"/>
+                            <field name="product_id"  domain="[('id', 'in', allowed_product_ids)]"  />
                             <field name="warranty_id"/>
                             <!-- <field name="warranty_coverage" invisible="not warranty_id"/> -->
                             <field name="contract_id"/>

@@ -49,6 +49,74 @@ class ROAMC(models.Model):
         ('5', '5 Years')
     ], string="Duration", default='1', required=True)
 
+    # Computed field to know exactly when the next one is due
+    next_service_date = fields.Date(string="Next Service Date", compute="_compute_next_date", store=True)
+
+    @api.depends('start_date', 'frequency')  # Removed 'last_service_date' dependency
+    def _compute_next_date(self):
+        today = fields.Date.today()
+        
+        for record in self:
+            if not record.start_date or not record.frequency:
+                record.next_service_date = False
+                continue
+
+            # 1. Determine the interval (delta) based on frequency
+            delta = relativedelta(months=0)
+            if record.frequency == 'monthly':
+                delta = relativedelta(months=1)
+            elif record.frequency == 'quarterly':
+                delta = relativedelta(months=3)
+            elif record.frequency == 'halfyearly':
+                delta = relativedelta(months=6)
+            elif record.frequency == 'yearly':
+                delta = relativedelta(years=1)
+
+            # 2. Calculate the next FUTURE date starting from Start Date
+            # Example: Start=Dec 10. Today=Jan 5.
+            # Loop 1: Dec 10 + 1 Month = Jan 10. (Is Jan 10 >= Today? Yes. Stop.)
+            # Result: Jan 10.
+            
+            calculated_date = record.start_date + delta
+            
+            # If the calculated date is in the past, keep adding intervals until we reach the future
+            while calculated_date < today:
+                calculated_date += delta
+            
+            record.next_service_date = calculated_date
+
+    def _cron_schedule_service_reminders(self):
+        """ Checks for services due in 2 days and schedules a call activity. """
+        
+        # Calculate the target date (e.g., Today + 2 days)
+        reminder_date = fields.Date.today() + relativedelta(days=2)
+        
+        # Find Active AMCs where next service is due on that specific date
+        records_due = self.search([
+            ('state', '=', 'active'),
+            ('next_service_date', '=', reminder_date),
+            ('technician_id', '!=', False) 
+        ])
+
+        for record in records_due:
+            # Check if an activity is already scheduled to avoid duplicates
+            existing_activity = self.env['mail.activity'].search_count([
+                ('res_id', '=', record.id),
+                ('res_model', '=', self._name),
+                ('activity_type_id', '=', self.env.ref('mail.mail_activity_data_call').id),
+                ('date_deadline', '=', record.next_service_date)
+            ])
+            
+            if not existing_activity:
+                formatted_date = record.next_service_date.strftime('%d-%m-%Y')
+                record.activity_schedule(
+                    'mail.mail_activity_data_call',
+                    user_id=record.technician_id.id,
+                    date_deadline=record.next_service_date,
+                    summary=f"Service Due: {record.frequency.capitalize()}",
+                    note=f"Please call the customer ({record.partner_id.name}). Service is due on {formatted_date}."
+                )
+
     @api.onchange('start_date', 'duration_years')
     def _onchange_duration(self):
         """ 

@@ -7,3 +7,4 @@ from . import ro_amc
 from . import ro_service
 from . import dashboard
 from . import ro_product_extension
+from . import ro_van_stock

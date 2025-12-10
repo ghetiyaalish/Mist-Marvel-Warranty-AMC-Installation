@@ -31,6 +31,7 @@
         'views/ro_reporting_views.xml',
         'wizard/fetch_orders_wizard_view.xml',
         'views/ro_legacy_dashboard.xml',
+        'views/ro_van_stock_views.xml',
         
     ],
     'installable': True,
