@@ -1,6 +1,8 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 from dateutil.relativedelta import relativedelta
+from datetime import date, timedelta
+
 import logging
 _logger = logging.getLogger(__name__)
 
@@ -97,8 +99,420 @@ class ROServiceOrder(models.Model):
     ], string='Status', default='new', tracking=True)
     
     chargeable = fields.Boolean(string='Chargeable', default=False, help="If True, create invoice")
- 
- 
+        
+    
+    def action_complete(self):
+        """ 
+        Main Method:
+        1. Deduct Stock from Technician's Van (if parts used).
+        2. Mark Order as Done.
+        3. Update AMC consumption.
+        """
+        _logger.info(f"--- STARTING STOCK MOVE FOR ORDER: {self.name} ---")
+
+        # 1. Check & Move Stock
+        if self.parts_line_ids:
+            self._move_stock_from_technician_van()
+
+        # 2. Update Status
+        self.write({
+            'state': 'done',
+            'done_date': fields.Date.today()
+        })
+
+        # 3. Update AMC
+        if self.contract_id:
+            self.contract_id.update_consumption()
+            
+        _logger.info(f"--- ORDER {self.name} COMPLETED SUCCESSFULLY ---")
+        return True
+
+    def _move_stock_from_technician_van(self):
+        """ 
+        Creates a 'Direct' Transfer from Tech Location -> Customer 
+        Forces the location at every level to prevent Odoo defaults.
+        """
+        self.ensure_one()
+
+        # --- A. GET TECHNICIAN LOCATION ---
+        if not self.assigned_to:
+            raise UserError(_("No Technician assigned to this order."))
+
+        van_config = self.env['ro.van.stock'].search([
+            ('technician_id', '=', self.assigned_to.id)
+        ], limit=1)
+
+        if not van_config:
+            raise UserError(_(f"Configuration Error: Technician '{self.assigned_to.name}' has no Van Stock configured."))
+        
+        tech_location = van_config.location_id
+        customer_location = self.env.ref('stock.stock_location_customers')
+
+        # --- B. GET PICKING TYPE ---
+        picking_type = self.env['stock.picking.type'].search([
+            ('code', '=', 'outgoing'),
+            ('warehouse_id.company_id', 'in', [self.env.company.id, False])
+        ], limit=1)
+        
+        if not picking_type:
+            raise UserError("System Error: No 'Outgoing' picking type found.")
+
+        # --- C. CREATE PICKING (HEADER) ---
+        picking = self.env['stock.picking'].create({
+            'partner_id': self.partner_id.id,
+            'picking_type_id': picking_type.id,
+            'location_id': tech_location.id,        # <--- FORCE LOCATION HERE
+            'location_dest_id': customer_location.id,
+            'origin': self.name,
+            'move_type': 'direct', 
+        })
+
+        # --- D. CREATE MOVES (LINES) ---
+        moves_created = False
+        for line in self.parts_line_ids:
+            if line.qty > 0:
+                moves_created = True
+                self.env['stock.move'].create({
+                    'name': line.product_id.display_name,
+                    'product_id': line.product_id.id,
+                    'product_uom_qty': line.qty,
+                    'product_uom': line.product_id.uom_id.id,
+                    'picking_id': picking.id,
+                    'location_id': tech_location.id,        # <--- FORCE LOCATION HERE
+                    'location_dest_id': customer_location.id,
+                    'state': 'draft',
+                })
+
+        if not moves_created:
+            return
+
+        # --- E. CONFIRM ---
+        picking.action_confirm()
+        
+        # --- F. FORCE "DONE" QUANTITIES & LOCATION ---
+        for move in picking.move_ids:
+            move.quantity = move.product_uom_qty 
+            
+            # 1. Update the Move itself just in case
+            move.write({'location_id': tech_location.id})
+
+            # 2. Handle Move Lines (Physical movement)
+            if not move.move_line_ids:
+                self.env['stock.move.line'].create({
+                    'move_id': move.id,
+                    'product_id': move.product_id.id,
+                    'product_uom_id': move.product_uom.id,
+                    'quantity': move.product_uom_qty,
+                    'location_id': tech_location.id,       # <--- FORCE LOCATION HERE
+                    'location_dest_id': customer_location.id,
+                    'picking_id': picking.id,
+                })
+            else:
+                for move_line in move.move_line_ids:
+                    move_line.write({
+                        'location_id': tech_location.id,   # <--- FORCE UPDATE LOCATION
+                        'quantity': move.product_uom_qty
+                    })
+
+        # --- G. VALIDATE ---
+        picking.with_context(skip_immediate=True).button_validate()
+    
+    
+    # working code , by grok
+    # def action_complete(self):
+    #     """ Deduct Inventory from TECHNICIAN LOCATION and Close Order """
+    #     # 1. Validation: Technician is mandatory
+    #     if not self.assigned_to:
+    #         raise UserError(_("Please assign a Technician before marking as Done."))
+    #     # 2. Find Technician's Location Config
+    #     van_config = self.env['ro.van.stock'].search([
+    #         ('technician_id', '=', self.assigned_to.id)
+    #     ], limit=1)
+    #     if not van_config:
+    #         raise UserError(_(f"Configuration Missing!\n\n"
+    #                         f"Technician '{self.assigned_to.name}' does not have a configured Stock Location.\n"
+    #                         f"Please go to: Inventory > Technician Stock > New\n"
+    #                         f"And assign a location (e.g., WH/Stock/Technician) to this user."))
+    #     # This is the location we MUST use
+    #     tech_location_id = van_config.location_id.id
+    #     # 3. Get Picking Type
+    #     picking_type = self.env['stock.picking.type'].search([
+    #         ('code', '=', 'outgoing'),
+    #         ('warehouse_id.company_id', 'in', [self.env.company.id, False])
+    #     ], limit=1)
+    #     if not picking_type:
+    #         raise UserError("No 'Outgoing' picking type found for the current company.")
+    #     # 4. Create Delivery Order Header (Force Location Here)
+    #     picking = self.env['stock.picking'].create({
+    #         'partner_id': self.partner_id.id,
+    #         'picking_type_id': picking_type.id,
+    #         'location_id': tech_location_id,  # <--- FORCE HEADER SOURCE
+    #         'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #         'origin': self.name,
+    #         'move_type': 'direct',
+    #     })
+    #     has_parts = False
+    #     if self.parts_line_ids:
+    #         for line in self.parts_line_ids.filtered(lambda l: l.qty > 0):
+    #             has_parts = True
+    #             # 5. Create Stock Move (Logical Request)
+    #             self.env['stock.move'].create({
+    #                 'name': line.product_id.display_name,
+    #                 'product_id': line.product_id.id,
+    #                 'product_uom_qty': line.qty,
+    #                 'product_uom': line.product_id.uom_id.id,
+    #                 'picking_id': picking.id,
+    #                 'location_id': tech_location_id,  # <--- FORCE MOVE SOURCE
+    #                 'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #                 'state': 'draft',
+    #             })
+    #         if has_parts:
+    #             # 6. Confirm Picking (Generates moves, but we SKIP auto-reservation)
+    #             picking.action_confirm()
+    #             # DO NOT CALL action_assign()! It might revert to main warehouse.
+    #             # 7. MANUALLY CREATE MOVE LINES (The Fix)
+    #             for move in picking.move_ids:
+    #                 move.quantity = move.product_uom_qty  # Set Done Qty
+    #                 self.env['stock.move.line'].create({
+    #                     'move_id': move.id,
+    #                     'product_id': move.product_id.id,
+    #                     'product_uom_id': move.product_uom.id,
+    #                     'quantity': move.product_uom_qty,
+    #                     'location_id': tech_location_id,  # <--- CRITICAL: Forces Tech Location
+    #                     'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #                     'picking_id': picking.id,
+    #                 })
+    #             # 8. Validate
+    #             picking.with_context(skip_immediate=True, skip_backorder=True).button_validate()
+    #     # 9. Finalize Order
+    #     self.write({'state': 'done', 'done_date': fields.Date.today()})
+    #     if self.contract_id:
+    #         self.contract_id.update_consumption()
+    #     return True
+        
+    def _consume_parts_from_van(self):
+        """ Creates Delivery Order from Technician Location -> Customer """
+        self.ensure_one()
+        
+        # ERROR FIX: Use 'assigned_to', not 'technician_id'
+        if not self.assigned_to:
+            raise UserError(_("Please assign a Technician before marking as Done."))
+
+        # 1. Find Van Stock Configuration
+        van_config = self.env['ro.van.stock'].search([
+            ('technician_id', '=', self.assigned_to.id)
+        ], limit=1)
+
+        if not van_config:
+            raise UserError(_(f"No Stock Location configured for technician '{self.assigned_to.name}'.\nPlease go to Inventory > Technician Stock and configure it."))
+
+        source_location = van_config.location_id.id
+        customer_location = self.env.ref('stock.stock_location_customers').id 
+
+        # 2. Create Picking Header
+        picking = self.env['stock.picking'].create({
+            'picking_type_id': self.env.ref('stock.picking_type_out').id, 
+            'location_id': source_location,       
+            'location_dest_id': customer_location, 
+            'origin': self.name,
+            'partner_id': self.partner_id.id,
+            'move_type': 'direct',
+        })
+
+        # 3. Create Moves
+        has_moves = False
+        for part in self.parts_line_ids:
+            if part.qty > 0:
+                has_moves = True
+                self.env['stock.move'].create({
+                    'name': part.product_id.name,
+                    'product_id': part.product_id.id,
+                    'product_uom_qty': part.qty,  # Demand
+                    'product_uom': part.product_id.uom_id.id,
+                    'location_id': source_location,
+                    'location_dest_id': customer_location,
+                    'picking_id': picking.id
+                })
+
+        if not has_moves:
+            return
+
+        # 4. Confirm Picking
+        picking.action_confirm()
+        picking.action_assign() # Try to reserve stock
+
+        # 5. FORCE VALIDATION (Fixes "Not Moving" issue)
+        # Even if tech has 0 stock, we force the done quantity
+        for move in picking.move_ids:
+            move.quantity = move.product_uom_qty # Set Done = Demand
+            
+            # If reservation failed (0 stock available), explicitly create the line
+            if not move.move_line_ids:
+                self.env['stock.move.line'].create({
+                    'move_id': move.id,
+                    'product_id': move.product_id.id,
+                    'product_uom_id': move.product_uom.id,
+                    'quantity': move.product_uom_qty,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': move.location_dest_id.id,
+                    'picking_id': picking.id,
+                })
+
+        # 6. Validate
+        picking.button_validate()
+    
+    # def action_complete(self):
+    #     """ Deduct Inventory from TECHNICIAN LOCATION and Close Order """
+    #     if self.parts_line_ids:
+    #         # Get the source location (technician's or main warehouse)
+    #         source_location = self._get_source_location()
+            
+    #         # Get outgoing picking type
+    #         picking_type = self.env['stock.picking.type'].search([
+    #             ('code', '=', 'outgoing'),
+    #             ('warehouse_id.company_id', 'in', [self.env.company.id, False])
+    #         ], limit=1)
+            
+    #         if not picking_type:
+    #             raise UserError(_("No outgoing picking type found for current company."))
+
+    #         # Create Delivery Order
+    #         picking = self.env['stock.picking'].create({
+    #             'partner_id': self.partner_id.id,
+    #             'picking_type_id': picking_type.id,
+    #             'location_id': source_location,  # <--- Uses Technician Location
+    #             'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #             'origin': self.name,
+    #             'move_type': 'direct',
+    #         })
+
+    #         # Create stock moves
+    #         moves_to_do = []
+    #         for line in self.parts_line_ids.filtered(lambda l: l.qty > 0):
+    #             move = self.env['stock.move'].create({
+    #                 'name': line.product_id.display_name,
+    #                 'product_id': line.product_id.id,
+    #                 'product_uom_qty': line.qty,
+    #                 'product_uom': line.product_id.uom_id.id,
+    #                 'picking_id': picking.id,
+    #                 'location_id': source_location,  # <--- Uses Technician Location
+    #                 'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #                 'state': 'draft',
+    #             })
+    #             moves_to_do.append(move)
+
+    #         if not moves_to_do:
+    #             self.write({'state': 'done', 'done_date': fields.Date.today()})
+    #             if self.contract_id:
+    #                 self.contract_id.update_consumption()
+    #             return
+
+    #         # Confirm & Assign
+    #         picking.action_confirm()
+    #         picking.action_assign()
+
+    #         # Force "DONE" QUANTITY
+    #         for move in picking.move_ids:
+    #             move.quantity = move.product_uom_qty
+    #             # Also update move lines
+    #             if not move.move_line_ids:
+    #                 self.env['stock.move.line'].create({
+    #                     'move_id': move.id,
+    #                     'product_id': move.product_id.id,
+    #                     'product_uom_id': move.product_uom.id,
+    #                     'quantity': move.product_uom_qty,
+    #                     'location_id': source_location,
+    #                     'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #                     'picking_id': picking.id,
+    #                 })
+    #             else:
+    #                 for move_line in move.move_line_ids:
+    #                     move_line.quantity = move.product_uom_qty
+
+    #         # Validate picking
+    #         picking.with_context(skip_immediate=True).button_validate()
+
+    #         # Log the technician location used
+    #         _logger.info(f"Service Order {self.name}: Stock moved from location ID {source_location} (Technician: {self.assigned_to.name if self.assigned_to else 'Not Assigned'})")
+
+    #     # Close Order
+    #     self.write({'state': 'done', 'done_date': fields.Date.today()})
+        
+    #     # Update AMC Limits
+    #     if self.contract_id:
+    #         self.contract_id.update_consumption()
+        
+    #     return True
+    
+    # def _consume_parts_from_van(self):
+    #     """ Creates Delivery Order from Technician Location -> Customer """
+    #     self.ensure_one()
+        
+    #     if not self.assigned_to:
+    #         raise UserError(_("Please assign a Technician before marking as Done."))
+
+    #     # Get technician's van stock configuration
+    #     van_config = self.env['ro.van.stock'].search([
+    #         ('technician_id', '=', self.assigned_to.id)
+    #     ], limit=1)
+
+    #     if not van_config:
+    #         raise UserError(_(f"No Stock Location configured for technician '{self.assigned_to.name}'.\nPlease go to Inventory > Technician Stock and configure it."))
+
+    #     source_location = van_config.location_id.id
+    #     customer_location = self.env.ref('stock.stock_location_customers').id 
+
+    #     # Create Picking Header
+    #     picking = self.env['stock.picking'].create({
+    #         'picking_type_id': self.env.ref('stock.picking_type_out').id, 
+    #         'location_id': source_location,       
+    #         'location_dest_id': customer_location, 
+    #         'origin': self.name,
+    #         'partner_id': self.partner_id.id,
+    #         'move_type': 'direct',
+    #     })
+
+    #     # Create Moves
+    #     has_moves = False
+    #     for part in self.parts_line_ids:
+    #         if part.qty > 0:
+    #             has_moves = True
+    #             self.env['stock.move'].create({
+    #                 'name': part.product_id.name,
+    #                 'product_id': part.product_id.id,
+    #                 'product_uom_qty': part.qty,
+    #                 'product_uom': part.product_id.uom_id.id,
+    #                 'location_id': source_location,
+    #                 'location_dest_id': customer_location,
+    #                 'picking_id': picking.id
+    #             })
+
+    #     if not has_moves:
+    #         return
+
+    #     # Confirm Picking
+    #     picking.action_confirm()
+    #     picking.action_assign()
+
+    #     # Force Validation
+    #     for move in picking.move_ids:
+    #         move.quantity = move.product_uom_qty
+            
+    #         # If reservation failed (0 stock available), explicitly create the line
+    #         if not move.move_line_ids:
+    #             self.env['stock.move.line'].create({
+    #                 'move_id': move.id,
+    #                 'product_id': move.product_id.id,
+    #                 'product_uom_id': move.product_uom.id,
+    #                 'quantity': move.product_uom_qty,
+    #                 'location_id': move.location_id.id,
+    #                 'location_dest_id': move.location_dest_id.id,
+    #                 'picking_id': picking.id,
+    #             })
+
+    #     # Validate
+    #     picking.button_validate()
+        
     @api.model
     def _cron_schedule_so_reminders(self):
         """
@@ -827,83 +1241,83 @@ class ROServiceOrder(models.Model):
         
 
     
-    def action_complete(self):
-        """ Deduct Inventory and Close Order - FIXED FOR ODOO 17 """
-        # ... (Keep all existing Inventory/Stock Deduction Code here) ...
-        if self.parts_line_ids:
-            # 1. Get outgoing picking type
-            picking_type = self.env['stock.picking.type'].search([
-                ('code', '=', 'outgoing'),
-                ('warehouse_id.company_id', 'in', [self.env.company.id, False])
-            ], limit=1)
-            if not picking_type:
-                raise UserError("No outgoing picking type found for current company.")
+    # def action_complete(self):
+    #     """ Deduct Inventory and Close Order - FIXED FOR ODOO 17 """
+    #     # ... (Keep all existing Inventory/Stock Deduction Code here) ...
+    #     if self.parts_line_ids:
+    #         # 1. Get outgoing picking type
+    #         picking_type = self.env['stock.picking.type'].search([
+    #             ('code', '=', 'outgoing'),
+    #             ('warehouse_id.company_id', 'in', [self.env.company.id, False])
+    #         ], limit=1)
+    #         if not picking_type:
+    #             raise UserError("No outgoing picking type found for current company.")
 
-            # 2. Create Delivery Order
-            picking = self.env['stock.picking'].create({
-                'partner_id': self.partner_id.id,
-                'picking_type_id': picking_type.id,
-                'location_id': picking_type.default_location_src_id.id,
-                'location_dest_id': self.env.ref('stock.stock_location_customers').id,
-                'origin': self.name,
-                'move_type': 'direct',  # Important for immediate transfer
-            })
+    #         # 2. Create Delivery Order
+    #         picking = self.env['stock.picking'].create({
+    #             'partner_id': self.partner_id.id,
+    #             'picking_type_id': picking_type.id,
+    #             'location_id': picking_type.default_location_src_id.id,
+    #             'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #             'origin': self.name,
+    #             'move_type': 'direct',  # Important for immediate transfer
+    #         })
 
-            # 3. Create stock moves
-            moves_to_do = []
-            for line in self.parts_line_ids.filtered(lambda l: l.qty > 0):
-                move = self.env['stock.move'].create({
-                    'name': line.product_id.display_name,
-                    'product_id': line.product_id.id,
-                    'product_uom_qty': line.qty,
-                    'product_uom': line.product_id.uom_id.id,
-                    'picking_id': picking.id,
-                    'location_id': picking_type.default_location_src_id.id,
-                    'location_dest_id': self.env.ref('stock.stock_location_customers').id,
-                    'state': 'draft',
-                })
-                moves_to_do.append(move)
+    #         # 3. Create stock moves
+    #         moves_to_do = []
+    #         for line in self.parts_line_ids.filtered(lambda l: l.qty > 0):
+    #             move = self.env['stock.move'].create({
+    #                 'name': line.product_id.display_name,
+    #                 'product_id': line.product_id.id,
+    #                 'product_uom_qty': line.qty,
+    #                 'product_uom': line.product_id.uom_id.id,
+    #                 'picking_id': picking.id,
+    #                 'location_id': picking_type.default_location_src_id.id,
+    #                 'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+    #                 'state': 'draft',
+    #             })
+    #             moves_to_do.append(move)
 
-            if not moves_to_do:
-                # No parts, just close
-                self.write({'state': 'done', 'done_date': fields.Date.today()})
-                # Check for AMC update even if no parts were moved (e.g. labor only)
-                if self.contract_id:
-                    self.contract_id.update_consumption() 
-                return
+    #         if not moves_to_do:
+    #             # No parts, just close
+    #             self.write({'state': 'done', 'done_date': fields.Date.today()})
+    #             # Check for AMC update even if no parts were moved (e.g. labor only)
+    #             if self.contract_id:
+    #                 self.contract_id.update_consumption() 
+    #             return
 
-            # 4. Confirm & Assign (reserve stock)
-            picking.action_confirm()
-            picking.action_assign()
+    #         # 4. Confirm & Assign (reserve stock)
+    #         picking.action_confirm()
+    #         picking.action_assign()
 
-            # 5. Set Done Quantities and Validate
-            for move in picking.move_ids_without_package:
-                if not move.move_line_ids:
-                    self.env['stock.move.line'].create({
-                        'move_id': move.id,
-                        'product_id': move.product_id.id,
-                        'product_uom_id': move.product_uom.id,
-                        'quantity': move.product_uom_qty,
-                        'location_id': move.location_id.id,
-                        'location_dest_id': move.location_dest_id.id,
-                        'picking_id': picking.id,
-                    })
-                else:
-                    # Update existing move lines
-                    move.move_line_ids.write({'quantity': move.product_uom_qty})
+    #         # 5. Set Done Quantities and Validate
+    #         for move in picking.move_ids_without_package:
+    #             if not move.move_line_ids:
+    #                 self.env['stock.move.line'].create({
+    #                     'move_id': move.id,
+    #                     'product_id': move.product_id.id,
+    #                     'product_uom_id': move.product_uom.id,
+    #                     'quantity': move.product_uom_qty,
+    #                     'location_id': move.location_id.id,
+    #                     'location_dest_id': move.location_dest_id.id,
+    #                     'picking_id': picking.id,
+    #                 })
+    #             else:
+    #                 # Update existing move lines
+    #                 move.move_line_ids.write({'quantity': move.product_uom_qty})
 
-            # 6. Validate picking
-            picking.with_context(skip_immediate=True).button_validate()
+    #         # 6. Validate picking
+    #         picking.with_context(skip_immediate=True).button_validate()
 
-        # 7. Mark service order as Done
-        self.write({'state': 'done', 'done_date': fields.Date.today()})
+    #     # 7. Mark service order as Done
+    #     self.write({'state': 'done', 'done_date': fields.Date.today()})
         
-        # --- CRITICAL FIX: Explicitly call the update method ---
-        if self.contract_id:
-            # This calls the method we defined in ro.amc to calculate consumed_qty
-            self.contract_id.update_consumption() 
+    #     # --- CRITICAL FIX: Explicitly call the update method ---
+    #     if self.contract_id:
+    #         # This calls the method we defined in ro.amc to calculate consumed_qty
+    #         self.contract_id.update_consumption() 
         
-        return True
+    #     return True
     
     def action_create_invoice(self):
         """ Create Invoice for Chargeable Services """

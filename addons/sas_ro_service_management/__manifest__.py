@@ -34,6 +34,12 @@
         'views/ro_van_stock_views.xml',
         
     ],
+    # 'assets': {
+    #     'web.assets_backend': [
+    #         'sas_ro_service_management/static/src/js/ro_dashboard_filters.js',
+    #         'sas_ro_service_management/static/src/xml/ro_dashboard_filters.xml',
+    #     ],
+    # },
     'installable': True,
     'application': True,
     'license': 'LGPL-3',

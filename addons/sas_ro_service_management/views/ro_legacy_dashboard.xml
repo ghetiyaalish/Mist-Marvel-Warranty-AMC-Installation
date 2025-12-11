@@ -5,7 +5,7 @@
         <field name="name">ro.service.part.line.legacy.tree</field>
         <field name="model">ro.service.part.line</field>
         <field name="arch" type="xml">
-            <tree string="Technician Parts Report" create="false" edit="false">
+            <tree string="Technician Parts Report" js_class="ro_dashboard_view" create="false" edit="false">
                 <field name="comp_no" string="COMP NO." optional="show"/>
                 <field name="complaint_date" string="COMPL. DATE" optional="show"/>
                 <field name="date_done" string="CLOSE DATE" optional="show"/>
@@ -97,7 +97,7 @@
         <field name="name">ro.warranty.machine.master</field>
         <field name="model">ro.machine.master</field>
         <field name="arch" type="xml">
-            <tree string="Home">
+            <tree string="Home" js_class="ro_dashboard_view" create="false" >
                 <field name="state" column_invisible="1"/>
                 <field name="invoice_no" string="INV NO." optional="show"/>
                 <field name="sale_date" string="DATE" optional="show"/>
@@ -145,7 +145,7 @@
         <field name="name">account.move.technician.tree</field>
         <field name="model">account.move</field>
         <field name="arch" type="xml">
-            <tree string="Technician Amount Reconciliation" create="false">
+            <tree string="Technician Amount Reconciliation" js_class="ro_dashboard_view" create="false">
                 <field name="invoice_date" string="DATE" optional="show"/>
                 <field name="partner_id" string="NAME" optional="show"/>
                 <field name="customer_contact" string="CONTACT" optional="show"/>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="sas_ro_service_management.RoFilterBar" owl="1">
+        <div class="d-flex align-items-end gap-2 p-3 bg-view border-bottom" 
+             style="background: #f8f9fa; border: 1px solid #dee2e6; margin-bottom: 15px; border-radius: 4px;">
+            
+            <div t-if="filterConfig.showDate" class="d-flex flex-column">
+                <small class="fw-bold text-muted mb-1">From</small>
+                <input type="date" class="form-control form-control-sm" t-model="state.date_from"/>
+            </div>
+
+            <div t-if="filterConfig.showDate" class="d-flex flex-column">
+                <small class="fw-bold text-muted mb-1">To</small>
+                <input type="date" class="form-control form-control-sm" t-model="state.date_to"/>
+            </div>
+
+            <div t-if="filterConfig.textLabel" class="d-flex flex-column" style="min-width: 200px;">
+                <small class="fw-bold text-muted mb-1"><t t-esc="filterConfig.textLabel"/></small>
+                <input type="text" class="form-control form-control-sm" 
+                       t-model="state.text_input" placeholder="Type to search..."/>
+            </div>
+
+            <div t-if="filterConfig.showTech" class="d-flex flex-column" style="min-width: 180px;">
+                <small class="fw-bold text-muted mb-1">Technician</small>
+                <select class="form-select form-select-sm" t-model="state.technician_id">
+                    <option value="all">ALL</option>
+                    <t t-foreach="technicians" t-as="tech" t-key="tech.id">
+                        <option t-att-value="tech.id"><t t-esc="tech.name"/></option>
+                    </t>
+                </select>
+            </div>
+
+            <div t-if="filterConfig.statusOptions.length > 0" class="d-flex flex-column" style="min-width: 180px;">
+                <small class="fw-bold text-muted mb-1">Status</small>
+                <select class="form-select form-select-sm" t-model="state.status">
+                    <option value="all">ALL</option>
+                    <t t-foreach="filterConfig.statusOptions" t-as="opt" t-key="opt.value">
+                        <option t-att-value="opt.value"><t t-esc="opt.label"/></option>
+                    </t>
+                </select>
+            </div>
+
+            <div class="d-flex gap-1 ms-auto">
+                <button class="btn btn-sm btn-primary px-3" t-on-click="onSearchClick">
+                    <i class="fa fa-search"/> SUBMIT
+                </button>
+                <button class="btn btn-sm btn-secondary px-3" t-on-click="onClearClick">
+                    <i class="fa fa-undo"/> RESET
+                </button>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="sas_ro_service_management.DashboardButtons" t-inherit="web.ListView.Buttons" t-inherit-mode="primary" owl="1">
+        <xpath expr="//div[contains(@class, 'o_list_buttons')]" position="before">
+            <div class="w-100">
+                <RoFilterBar resModel="props.resModel"/>
+            </div>
+        </xpath>
+    </t>
+
+</templates>

@@ -20,7 +20,13 @@
                             <field name="line_ids">
                                 <tree editable="bottom">
                                     <field name="product_id"/>
-                                    <field name="target_qty"/>
+                                
+                                    <field name="current_qty" string="Current Hand" readonly="1" force_save="1" decoration-info="1"/>
+                                
+                                    <field name="target_qty" string="Target Qty"/>
+                                
+                                    <field name="demand_qty" string="To Issue" readonly="1" force_save="1" 
+                                       decoration-danger="demand_qty > 0" decoration-bf="demand_qty > 0"/>
                                 </tree>
                             </field>
                         </page>
@@ -36,8 +42,15 @@
         <field name="view_mode">tree,form</field>
     </record>
 
+    <!-- Using below code , Technician Stock inside Inventory -->
+<!-- 
     <menuitem id="menu_ro_van_stock" 
               name="Technician Stock" 
               parent="stock.menu_stock_root" 
-              action="action_ro_van_stock"/>
+              action="action_ro_van_stock"/> -->
+
+    <menuitem id="menu_ro_van_stock" 
+              name="Technician Stock" 
+              parent="menu_ro_root"  action="action_ro_van_stock"
+              sequence="40"/>
 </odoo>
