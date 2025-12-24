@@ -1,0 +1,79 @@
+<!-- <?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_ro_mis_report" model="ir.actions.report">
+        <field name="name">Performance Sheet</field>
+        <field name="model">ro.mis.report.wizard</field>
+        <field name="report_type">qweb-html</field> <field name="report_name">your_module_name.report_mis_template</field>
+        <field name="report_file">your_module_name.report_mis_template</field>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_mis_template">
+        <t t-call="web.html_container">
+            <div class="page" style="font-family: Arial; font-size: 10px;">
+                
+                <h2 class="text-center">Master Performance Sheet - <span t-esc="data['month_label']"/> <span t-esc="data['year']"/></h2>
+
+                <table class="table table-bordered table-sm" style="border: 2px solid black;">
+                    <thead>
+                        <tr style="color: white; font-weight: bold; text-align: center;">
+                            <th style="background-color: #dfa85f; vertical-align: middle;" rowspan="2">ENGINEER</th>
+                            
+                            <th colspan="2" style="background-color: #c0504d;">TARGET</th>
+                            <th colspan="2" style="background-color: #9bbb59;">ACHIEVED</th>
+                            <th colspan="2" style="background-color: #4f81bd;">PENDING</th>
+                            <th colspan="2" style="background-color: #c0504d;">REQUIRE PER DAY</th>
+
+                            <t t-foreach="days" t-as="day">
+                                <th colspan="2" style="background-color: #dce6f1; color: black; border: 1px solid gray;">
+                                    <span t-esc="day"/>
+                                </th>
+                            </t>
+                        </tr>
+
+                        <tr style="background-color: #d9d9d9; font-weight: bold; text-align: center; font-size: 9px;">
+                            <td>REVENUE</td> <td>CALLS</td>
+                            <td>REVENUE</td> <td>CALLS</td>
+                            <td>REVENUE</td> <td>CALLS</td>
+                            <td>REVENUE</td> <td>CALLS</td>
+                            
+                            <t t-foreach="days" t-as="day">
+                                <td>REV</td> <td>CALL</td>
+                            </t>
+                        </tr>
+                    </thead>
+                    
+                    <tbody>
+                        <tr t-foreach="lines" t-as="l">
+                            <td style="background-color: #fce4d6; font-weight: bold;"><span t-esc="l['name']"/></td>
+                            
+                            <td><span t-esc="l['target_rev']"/></td>
+                            <td><span t-esc="l['target_call']"/></td>
+                            
+                            <td><span t-esc="l['achieved_rev']"/></td>
+                            <td><span t-esc="l['achieved_call']"/></td>
+                            
+                            <td><span t-esc="l['pending_rev']"/></td>
+                            <td><span t-esc="l['pending_days']"/></td> <td style="background-color: #f2dbdb;"><span t-esc="l['req_per_day']"/></td>
+                            <td style="background-color: #f2dbdb;">0</td>
+
+                            <t t-foreach="days" t-as="day">
+                                <td><span t-esc="l['daily'][day]['rev']" t-if="l['daily'][day]['rev'] > 0"/></td>
+                                <td><span t-esc="l['daily'][day]['call']" t-if="l['daily'][day]['call'] > 0"/></td>
+                            </t>
+                        </tr>
+
+                        <tr style="background-color: #a9d08e; font-weight: bold;">
+                            <td>TOTAL</td>
+                            <td><span t-esc="total['target_rev']"/></td>
+                            <td><span t-esc="total['target_call']"/></td>
+                            <td><span t-esc="total['achieved_rev']"/></td>
+                            <td><span t-esc="total['achieved_call']"/></td>
+                            </tr>
+                    </tbody>
+                </table>
+            </div>
+        </t>
+    </template>
+</odoo> -->

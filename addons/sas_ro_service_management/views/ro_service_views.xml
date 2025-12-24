@@ -19,6 +19,8 @@
                 <field name="partner_address" optional="hide"/> 
                 <field name="warranty_id" optional="hide"/>
                 <field name="contract_id" optional="hide"/>
+                <field name="coverage_start_date" optional="hide" string="Cov. Start"/>
+                <field name="coverage_end_date" optional="hide" string="Cov. End"/>
                 <field name="scheduled_date" optional="show"/>
                 <field name="assigned_to" optional="show"/>
                 <field name="issue_type" optional="show"/>
@@ -87,6 +89,12 @@
                             <field name="warranty_id"/>
                             <!-- <field name="warranty_coverage" invisible="not warranty_id"/> -->
                             <field name="contract_id"/>
+                            <label for="coverage_start_date" string="Coverage Period"/>
+                            <div class="o_row">
+                                <field name="coverage_start_date" force_save="1" /> 
+                                <span class="o_form_label mx-2">to</span> 
+                                <field name="coverage_end_date" force_save="1" />
+                            </div>
                         </group>
                         <group>
                             <field name="scheduled_date"/>

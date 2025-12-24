@@ -41,7 +41,7 @@
     <record id="action_ro_legacy_parts" model="ir.actions.act_window">
         <field name="name">Technician Pending Parts</field>
         <field name="res_model">ro.service.part.line</field>
-        <field name="view_mode">tree,pivot</field>
+        <field name="view_mode">tree,form,pivot</field>
         <field name="view_id" ref="view_ro_part_line_legacy_tree"/>
         <field name="context">{'search_default_today': 0}</field>
     </record>

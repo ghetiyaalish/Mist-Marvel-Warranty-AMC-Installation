@@ -5,6 +5,7 @@ access_ro_part_line_tech,ro.service.part.line.tech,model_ro_service_part_line,gr
 access_ro_warranty_tech,ro.warranty.tech,model_ro_warranty,group_ro_technician,1,0,0,0
 access_ro_amc_tech,ro.amc.tech,model_ro_amc,group_ro_technician,1,0,0,0
 access_ro_installation_mgr,ro.installation.mgr,model_ro_installation,group_ro_manager,1,1,1,1
+access_ro_installation_line,ro.installation.line,model_ro_installation_line,base.group_user,1,1,1,1
 access_ro_service_mgr,ro.service.order.mgr,model_ro_service_order,group_ro_manager,1,1,1,1
 access_ro_part_line_mgr,ro.service.part.line.mgr,model_ro_service_part_line,group_ro_manager,1,1,1,1
 access_ro_warranty_mgr,ro.warranty.mgr,model_ro_warranty,group_ro_manager,1,1,1,1
@@ -20,3 +21,6 @@ access_ro_van_stock_mgr,ro.van.stock.mgr,model_ro_van_stock,group_ro_manager,1,1
 access_ro_van_stock_line_mgr,ro.van.stock.line.mgr,model_ro_van_stock_line,group_ro_manager,1,1,1,1
 access_ro_van_stock_tech,ro.van.stock.tech,model_ro_van_stock,group_ro_technician,1,0,0,0
 access_ro_van_stock_line_tech,ro.van.stock.line.tech,model_ro_van_stock_line,group_ro_technician,1,0,0,0
+access_ro_technician_target,ro.technician.target,model_ro_technician_target,base.group_user,1,1,1,1
+access_ro_technician_report,ro.technician.report,model_ro_technician_report,base.group_user,1,0,0,0
+access_ro_technician_dashboard,ro.technician.dashboard,model_ro_technician_dashboard,base.group_user,1,0,0,0

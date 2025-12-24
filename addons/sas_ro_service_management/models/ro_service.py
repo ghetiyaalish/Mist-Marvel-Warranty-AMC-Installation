@@ -99,7 +99,29 @@ class ROServiceOrder(models.Model):
     ], string='Status', default='new', tracking=True)
     
     chargeable = fields.Boolean(string='Chargeable', default=False, help="If True, create invoice")
-        
+    
+    
+    coverage_start_date = fields.Date(string="Coverage Start", readonly=True, help="Start date of the Warranty or AMC")
+    coverage_end_date = fields.Date(string="Coverage End", readonly=True, help="Expiry date of the Warranty or AMC")
+    
+    # --- AUTOMATION LOGIC ---
+    @api.onchange('warranty_id', 'contract_id')
+    def _onchange_coverage_dates(self):
+        """ 
+        Automatically fill Start/End dates based on selected Warranty or AMC.
+        Priority: Warranty > AMC
+        """
+        if self.warranty_id:
+            self.coverage_start_date = self.warranty_id.start_date
+            self.coverage_end_date = self.warranty_id.end_date
+        elif self.contract_id:
+            self.coverage_start_date = self.contract_id.start_date
+            self.coverage_end_date = self.contract_id.end_date
+        else:
+            # Clear fields if nothing is selected
+            self.coverage_start_date = False
+            self.coverage_end_date = False
+    
     
     def action_complete(self):
         """ 
@@ -1412,3 +1434,11 @@ class ROServicePartLine(models.Model):
     def _compute_service_type(self):
         for rec in self:
             rec.service_type = 'chargeable' if rec.service_order_id.chargeable else 'free'
+
+
+
+
+
+
+
+

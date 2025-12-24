@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ro_technician_dashboard_pivot" model="ir.ui.view">
+        <field name="name">ro.technician.dashboard.pivot</field>
+        <field name="model">ro.technician.dashboard</field>
+        <field name="arch" type="xml">
+            <pivot string="Technician Performance" disable_linking="True" display_quantity="true">
+                <field name="technician_id" type="row"/>
+                
+                <field name="date" interval="month" type="col"/>
+
+                <field name="target_revenue" type="measure" string="Target Rev"/>
+                <field name="achieved_revenue" type="measure" string="Achieved Rev"/>
+                <field name="pending_revenue" type="measure" string="Pending Rev"/>
+                
+                <field name="target_calls" type="measure" string="Target Calls"/> <field name="achieved_calls" type="measure" string="Achieved Calls"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="action_technician_dashboard" model="ir.actions.act_window">
+        <field name="name">Master Performance Sheet</field>
+        <field name="res_model">ro.technician.dashboard</field>
+        <field name="view_mode">pivot</field>
+        <field name="context">{}</field>
+    </record>
+
+    <menuitem id="menu_technician_dashboard"
+              name="Master Excel Report"
+              parent="menu_ro_reporting_root" 
+              action="action_technician_dashboard"
+              sequence="30"/>
+</odoo>

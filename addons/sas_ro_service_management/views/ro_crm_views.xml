@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_crm_lead_form_inherit_ro" model="ir.ui.view">
+        <field name="name">crm.lead.form.inherit.ro</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+            
+            <xpath expr="//field[@name='tag_ids']" position="after">
+                <field name="ro_customer_category" widget="radio" options="{'horizontal': true}"/>
+            </xpath>
+
+            <xpath expr="//group[field[@name='user_id']]" position="after">
+                <group string="Time Analysis">
+                    <field name="ro_created_datetime" readonly="1"/>
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="view_crm_case_opportunities_filter_inherit_analytics" model="ir.ui.view">
+        <field name="name">crm.lead.search.analytics</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.view_crm_case_opportunities_filter"/>
+        <field name="arch" type="xml">
+            <filter name="won" position="after">
+                <separator/>
+                <filter string="Closed &lt; 24h" name="speed_fast" domain="[('conversion_speed', '=', 'fast')]"/>
+                <filter string="Closed 24-48h" name="speed_medium" domain="[('conversion_speed', '=', 'medium')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Conversion Speed" name="group_speed" context="{'group_by': 'conversion_speed'}"/>
+                </group>
+            </filter>
+        </field>
+    </record>
+
+    <record id="view_crm_lead_form_analytics" model="ir.ui.view">
+        <field name="name">crm.lead.form.analytics</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='tag_ids']" position="after">
+                <field name="conversion_speed" readonly="1" invisible="conversion_speed == False"/>
+            </xpath>
+        </field>
+    </record>
+    
+</odoo>

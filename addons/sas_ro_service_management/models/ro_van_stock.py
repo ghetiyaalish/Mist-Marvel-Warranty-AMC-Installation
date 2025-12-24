@@ -97,6 +97,54 @@ class RoVanStock(models.Model):
             'res_id': picking.id,
         }
 
+
+
+    # --- 2. RETURN EXCESS (Tech -> Warehouse) ---
+    def action_return_excess_stock(self):
+        """ Sends stock FROM Technician TO Main Warehouse (if they have extra) """
+        self.ensure_one()
+        
+        # Reverse Locations
+        source_location = self.location_id               # FROM: Technician
+        dest_location = self.env.ref('stock.stock_location_stock') # TO: Warehouse
+        
+        picking_vals = {
+            'picking_type_id': self.env.ref('stock.picking_type_internal').id, 
+            'location_id': source_location.id,
+            'location_dest_id': dest_location.id,
+            'origin': f"Return Excess Stock - {self.technician_id.name}",
+        }
+        
+        move_lines = []
+        for line in self.line_ids:
+            # Refresh qty
+            line._compute_stock_levels() # Force recompute to be safe
+            
+            # Use the new computed field 'return_qty'
+            if line.return_qty > 0:
+                move_lines.append((0, 0, {
+                    'name': line.product_id.name,
+                    'product_id': line.product_id.id,
+                    'product_uom': line.product_id.uom_id.id,
+                    'product_uom_qty': line.return_qty, # Returning the excess
+                    'location_id': source_location.id,
+                    'location_dest_id': dest_location.id,
+                }))
+
+        if not move_lines:
+            raise UserError(_("No excess stock to return! Technician stock is at or below target."))
+
+        picking_vals['move_ids_without_package'] = move_lines
+        picking = self.env['stock.picking'].create(picking_vals)
+        picking.action_confirm() # Create Confirmed Transfer
+
+        return {
+            'name': _('Return Excess Stock'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'stock.picking',
+            'view_mode': 'form',
+            'res_id': picking.id,
+        }
     
     
 class RoVanStockLine(models.Model):
@@ -108,6 +156,7 @@ class RoVanStockLine(models.Model):
     target_qty = fields.Integer(string='Target Quantity', default=5, help="Qty the tech should always have")
     current_qty = fields.Float(string="Current Stock", compute="_compute_stock_levels")
     demand_qty = fields.Float(string="To Replenish", compute="_compute_stock_levels")
+    return_qty = fields.Float(string="To Return", compute="_compute_stock_levels") # NEW FIELD
 
     @api.depends('product_id', 'target_qty', 'van_stock_id.location_id')
     def _compute_stock_levels(self):
@@ -115,6 +164,7 @@ class RoVanStockLine(models.Model):
             if not line.van_stock_id.location_id or not line.product_id:
                 line.current_qty = 0.0
                 line.demand_qty = 0.0
+                line.return_qty = 0.0
                 continue
 
             # 1. Get Stock in Technician's Location
@@ -125,3 +175,4 @@ class RoVanStockLine(models.Model):
             # 2. Calculate Demand (Target - Current)
             # If they have more than target, demand is 0 (we don't take back stock usually)
             line.demand_qty = max(0, line.target_qty - line.current_qty)
+            line.return_qty = max(0, line.current_qty - line.target_qty)

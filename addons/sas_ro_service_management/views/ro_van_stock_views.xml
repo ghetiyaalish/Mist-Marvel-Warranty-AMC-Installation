@@ -9,6 +9,10 @@
                             string="Replenish Missing Stock" 
                             type="object" 
                             class="btn-primary"/>
+                    <button name="action_return_excess_stock" 
+                            string="Return Excess Stock" 
+                            type="object" 
+                            class="btn-secondary"/>
                 </header>
                 <sheet>
                     <group>
@@ -27,6 +31,8 @@
                                 
                                     <field name="demand_qty" string="To Issue" readonly="1" force_save="1" 
                                        decoration-danger="demand_qty > 0" decoration-bf="demand_qty > 0"/>
+                                    <field name="return_qty" string="To Return" readonly="1" force_save="1" 
+                                           decoration-warning="return_qty > 0" invisible="return_qty == 0"/>
                                 </tree>
                             </field>
                         </page>

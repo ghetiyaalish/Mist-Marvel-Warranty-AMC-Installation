@@ -1,0 +1,192 @@
+/* ============================================================
+   1. Main Filter Container
+============================================================ */
+.o_dashboard_filter_container {
+    width: auto;
+    max-width: 100vw;
+    display: block;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 15px;
+    margin-bottom: 0px;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 10;
+    margin-top: 50px;
+}
+
+/* ============================================================
+   2. Panel Wrapper
+============================================================ */
+.ro-dashboard-filter-panel {
+    width: 100%;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+/* ============================================================
+   3. Filter Body (Scrollable Row)
+============================================================ */
+.ro-filter-body {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+}
+
+/* ============================================================
+   4. Filter Grid
+============================================================ */
+.ro-filter-grid {
+    display: flex;
+    flex: 1;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 12px;
+    min-width: 0;
+}
+
+/* ============================================================
+   5. Filter Group
+============================================================ */
+.ro-filter-group {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-width: 180px; /* Prevent shrinking */
+}
+
+/* Search field grows more */
+.ro-filter-group:has(.ro-search-input) {
+    flex: 1 1 240px;
+    min-width: 200px;
+}
+
+/* ============================================================
+   6. Date Range Fix (NO OVERLAP)
+============================================================ */
+.ro-date-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: 330px !important; /* Fixed: prevents collapse */
+}
+
+.ro-date-range .ro-input {
+    min-width: 150px !important;
+    flex: 0 0 150px !important; /* Prevent shrinking */
+}
+
+/* ============================================================
+   7. Buttons Section
+============================================================ */
+.ro-filter-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    align-items: flex-end;
+    height: 32px;
+    margin-left: auto;
+}
+
+/* Sticky effect when scroll occurs */
+.ro-filter-actions {
+    background-color: #ffffff;
+    position: sticky;
+    right: 0;
+    padding-left: 8px;
+}
+
+/* ============================================================
+   8. Labels
+============================================================ */
+.ro-filter-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #6c757d;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   9. Input Style
+============================================================ */
+.ro-input {
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+    height: 32px;
+    width: 100%;
+    background-color: #f9fafb;
+}
+
+.ro-input:focus {
+    border-color: #00A09D;
+    background-color: #fff;
+    outline: none;
+}
+
+/* ============================================================
+   10. Buttons
+============================================================ */
+.ro-action-btn {
+    height: 32px;
+    padding: 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    border-radius: 4px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   11. Scrollbar Styling
+============================================================ */
+.ro-filter-body::-webkit-scrollbar {
+    height: 4px;
+}
+.ro-filter-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 2px;
+}
+.ro-filter-body::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 2px;
+}
+.ro-filter-body::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* ============================================================
+   12. Responsive Tweaks
+============================================================ */
+@media (max-width: 1200px) {
+    .ro-filter-group {
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 992px) {
+    .ro-filter-group {
+        min-width: 140px;
+    }
+    .ro-date-range {
+        min-width: 310px !important;
+    }
+}

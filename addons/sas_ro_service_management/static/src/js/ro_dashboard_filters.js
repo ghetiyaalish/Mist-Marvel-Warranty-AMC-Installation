@@ -113,8 +113,27 @@ class RoFilterBar extends Component {
         }
     
         // ----- FINAL ODOO 17 FIX -----
+        // const searchModel = this.env.searchModel;
+        // await searchModel.setDomain(domain);  // <-- key line ✔
+        
+
         const searchModel = this.env.searchModel;
-        await searchModel.setDomain(domain);  // <-- key line ✔
+        
+        // 1. Clear previous search filters (Optional: keeps it clean)
+        if (searchModel.clearQuery) {
+            searchModel.clearQuery();
+        }
+
+        // 2. Apply the new domain
+        if (domain.length > 0) {
+            try {
+                // splitAndAddDomain parses the domain and adds it as search facets
+                await searchModel.splitAndAddDomain(domain);
+            } catch (e) {
+                console.error("Search Error:", e);
+            }
+        }
+
     }
         
     async onClearClick() {
@@ -125,7 +144,9 @@ class RoFilterBar extends Component {
         this.state.text_input = '';
     
         const searchModel = this.env.searchModel;
-        await searchModel.setDomain([]);   // reset filters ✔
+        // await searchModel.setDomain([]);   // reset filters ✔
+        // await searchModel.setDomainParts({ domain: [] });
+
     }
     
 }
@@ -151,6 +172,9 @@ export const RoDashboardView = {
     ...listView,
     Controller: RoDashboardController,
     buttonTemplate: "sas_ro_service_management.DashboardButtons",
+    // template: "sas_ro_service_management.DashboardButtons",
+
 };
 
 registry.category("views").add("ro_dashboard_view", RoDashboardView);
+

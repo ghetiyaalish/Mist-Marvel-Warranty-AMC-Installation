@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ro_technician_target_form" model="ir.ui.view">
+        <field name="name">ro.technician.target.form</field>
+        <field name="model">ro.technician.target</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="technician_id"/>
+                            <!-- <field name="user_id" string="Technician"/> -->
+                            <field name="month_date" widget="date" options="{'format': 'MMMM yyyy'}"/>
+                            <!-- <field name="month"/>
+                            <field name="year"/> -->
+                        </group>
+                        <group>
+                            <field name="target_revenue"/>
+                            <field name="target_calls"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_ro_technician_target_tree" model="ir.ui.view">
+        <field name="name">ro.technician.target.tree</field>
+        <field name="model">ro.technician.target</field>
+        <field name="arch" type="xml">
+            <tree editable="bottom">
+                <field name="technician_id"/>
+                <!-- <field name="user_id"/>  -->
+                <field name="month_date"/>
+                <!-- <field name="month"/>
+                <field name="year"/> -->
+                <field name="target_revenue"/>
+                <field name="target_calls"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_ro_technician_target" model="ir.actions.act_window">
+        <field name="name">Set Monthly Targets</field>
+        <field name="res_model">ro.technician.target</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_ro_technician_target"
+              name="Set Monthly Targets"
+              parent="menu_ro_reporting_root" 
+              action="action_ro_technician_target"
+              sequence="25"/>
+</odoo>

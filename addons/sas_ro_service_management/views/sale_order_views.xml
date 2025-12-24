@@ -7,11 +7,14 @@
         <field name="arch" type="xml">
             
             <xpath expr="//header" position="inside">
+                <!-- <field name="is_installation_scheduled" invisible="1"/> -->
                 <button name="action_create_installation" 
                         string="Schedule Installation" 
                         type="object" 
                         class="btn-primary"
-                        invisible="invoice_count == 0"/>
+                        invisible="invoice_count == 0"
+
+                    />
             </xpath>
 
         </field>

@@ -2,62 +2,76 @@
 <templates xml:space="preserve">
 
     <t t-name="sas_ro_service_management.RoFilterBar" owl="1">
-        <div class="d-flex align-items-end gap-2 p-3 bg-view border-bottom" 
-             style="background: #f8f9fa; border: 1px solid #dee2e6; margin-bottom: 15px; border-radius: 4px;">
+        <div class="ro-dashboard-filter-panel">
+            <div class="ro-filter-header">
+                <i class="fa fa-filter me-2 text-primary"></i>
+                <span class="fw-bold small text-uppercase">Filters</span>
+            </div>
             
-            <div t-if="filterConfig.showDate" class="d-flex flex-column">
-                <small class="fw-bold text-muted mb-1">From</small>
-                <input type="date" class="form-control form-control-sm" t-model="state.date_from"/>
-            </div>
+            <div class="ro-filter-body">
+                <div class="ro-filter-grid">
+                    
+                    <div t-if="filterConfig.showDate" class="ro-filter-group">
+                        <label class="ro-filter-label">Date Range</label>
+                        <div class="ro-date-range">
+                            <input type="date" class="form-control form-control-sm ro-input" t-model="state.date_from"/>
+                            <span class="ro-date-separator"><i class="fa fa-arrow-right"/></span>
+                            <input type="date" class="form-control form-control-sm ro-input" t-model="state.date_to"/>
+                        </div>
+                    </div>
 
-            <div t-if="filterConfig.showDate" class="d-flex flex-column">
-                <small class="fw-bold text-muted mb-1">To</small>
-                <input type="date" class="form-control form-control-sm" t-model="state.date_to"/>
-            </div>
+                    <div t-if="filterConfig.textLabel" class="ro-filter-group">
+                        <label class="ro-filter-label"><t t-esc="filterConfig.textLabel"/></label>
+                        <div class="ro-search-input input-group input-group-sm">
+                            <span class="input-group-text"><i class="fa fa-search text-muted"/></span>
+                            <input type="text" class="form-control ro-input" t-model="state.text_input" placeholder="Search..."/>
+                        </div>
+                    </div>
 
-            <div t-if="filterConfig.textLabel" class="d-flex flex-column" style="min-width: 200px;">
-                <small class="fw-bold text-muted mb-1"><t t-esc="filterConfig.textLabel"/></small>
-                <input type="text" class="form-control form-control-sm" 
-                       t-model="state.text_input" placeholder="Type to search..."/>
-            </div>
+                    <div t-if="filterConfig.showTech" class="ro-filter-group">
+                        <label class="ro-filter-label">Technician</label>
+                        <div class="ro-select-wrapper">
+                            <select class="form-select form-select-sm ro-input" t-model="state.technician_id">
+                                <option value="all">All Technicians</option>
+                                <t t-foreach="technicians" t-as="tech" t-key="tech.id">
+                                    <option t-att-value="tech.id"><t t-esc="tech.name"/></option>
+                                </t>
+                            </select>
+                        </div>
+                    </div>
 
-            <div t-if="filterConfig.showTech" class="d-flex flex-column" style="min-width: 180px;">
-                <small class="fw-bold text-muted mb-1">Technician</small>
-                <select class="form-select form-select-sm" t-model="state.technician_id">
-                    <option value="all">ALL</option>
-                    <t t-foreach="technicians" t-as="tech" t-key="tech.id">
-                        <option t-att-value="tech.id"><t t-esc="tech.name"/></option>
-                    </t>
-                </select>
-            </div>
+                    <div t-if="filterConfig.statusOptions.length > 0" class="ro-filter-group">
+                        <label class="ro-filter-label">Status</label>
+                        <div class="ro-select-wrapper">
+                            <select class="form-select form-select-sm ro-input" t-model="state.status">
+                                <option value="all">All Status</option>
+                                <t t-foreach="filterConfig.statusOptions" t-as="opt" t-key="opt.value">
+                                    <option t-att-value="opt.value"><t t-esc="opt.label"/></option>
+                                </t>
+                            </select>
+                        </div>
+                    </div>
 
-            <div t-if="filterConfig.statusOptions.length > 0" class="d-flex flex-column" style="min-width: 180px;">
-                <small class="fw-bold text-muted mb-1">Status</small>
-                <select class="form-select form-select-sm" t-model="state.status">
-                    <option value="all">ALL</option>
-                    <t t-foreach="filterConfig.statusOptions" t-as="opt" t-key="opt.value">
-                        <option t-att-value="opt.value"><t t-esc="opt.label"/></option>
-                    </t>
-                </select>
-            </div>
+                </div>
 
-            <div class="d-flex gap-1 ms-auto">
-                <button class="btn btn-sm btn-primary px-3" t-on-click="onSearchClick">
-                    <i class="fa fa-search"/> SUBMIT
-                </button>
-                <button class="btn btn-sm btn-secondary px-3" t-on-click="onClearClick">
-                    <i class="fa fa-undo"/> RESET
-                </button>
+                <div class="ro-filter-actions">
+                    <button class="btn btn-primary ro-action-btn" t-on-click="onSearchClick">
+                        <i class="fa fa-filter me-1"/>APPLY
+                    </button>
+                    <button class="btn btn-info btn-outline-secondary ro-action-btn" t-on-click="onClearClick">
+                        <i class="fa fa-times "/>CLEAR
+                    </button>
+                </div>
             </div>
         </div>
     </t>
 
     <t t-name="sas_ro_service_management.DashboardButtons" t-inherit="web.ListView.Buttons" t-inherit-mode="primary" owl="1">
         <xpath expr="//div[contains(@class, 'o_list_buttons')]" position="before">
-            <div class="w-100">
+            <div class="o_dashboard_filter_container">
                 <RoFilterBar resModel="props.resModel"/>
-            </div>
-        </xpath>
+            </div> 
+        </xpath> 
     </t>
 
 </templates>

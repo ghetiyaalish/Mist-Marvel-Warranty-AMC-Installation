@@ -6,7 +6,16 @@ from odoo.exceptions import UserError
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
+    #added this to make schedule installation button invisible when installation is done.
+    # is_installation_scheduled = fields.Boolean(string="Installation Scheduled", default=False, copy=False)
 
+    # def action_schedule_installation(self):
+    #     for rec in self:
+    #         # ... [Your existing logic to create the installation] ...
+            
+    #         # CRITICAL: Set the flag to True after scheduling
+    #         rec.is_installation_scheduled = True
+    
     # warrenty starts when status is active
     
     # def action_confirm(self):
@@ -28,6 +37,9 @@ class SaleOrder(models.Model):
     
     # We need to change the logic so that if a product requires installation, the warranty starts as "Draft" instead of "Active"
     # changes for this code made in sale_order.py , installation.py
+    
+    
+    
     def action_confirm(self):
         res = super(SaleOrder, self).action_confirm()
         for order in self:
@@ -68,6 +80,7 @@ class SaleOrder(models.Model):
                         'location': order.partner_shipping_id.contact_address or order.partner_id.contact_address,
                         'status': 'planned'
                     })
+
                     # Break after finding the first installable product 
                     # (to prevent opening 5 windows if you sell 5 items)
                     break 
@@ -82,3 +95,4 @@ class SaleOrder(models.Model):
                 'view_mode': 'form',
                 'target': 'current',
             }
+    

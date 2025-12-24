@@ -1,5 +1,4 @@
 
-
 from odoo import models, fields, api ,_
 from dateutil.relativedelta import relativedelta
 from odoo.exceptions import UserError # <--- Make sure to import UserError
@@ -18,6 +17,14 @@ class ROInstallation(models.Model):
     # NEW: Serial Number Link
     lot_id = fields.Many2one('stock.lot', string='Serial Number', domain="[('product_id', '=', product_id)]")
     
+    # Add this new field
+    # installation_type = fields.Selection([
+    #     ('new', 'New Installation'),
+    #     ('reinstall', 'Reinstallation / Shifting')
+    # ], string='Order Type', default='new', required=True, tracking=True)
+    
+    
+    
     scheduled_date = fields.Datetime(string='Scheduled Date')
     assigned_to = fields.Many2one('res.users', string='Technician')
     status = fields.Selection([
@@ -35,6 +42,126 @@ class ROInstallation(models.Model):
     # NEW: Photos and Signature
     installation_photo = fields.Binary(string="Installation Photo")
     customer_signature = fields.Binary(string="Customer Signature")
+    installation_line_ids = fields.One2many('ro.installation.line', 'installation_id', string="Extra Parts Used")
+    
+    # New Field to link the created invoice
+    invoice_id = fields.Many2one('account.move', string="Invoice", readonly=True)
+
+    installation_type = fields.Selection([
+        ('new', 'New Installation'),
+        ('reinstall', 'Reinstallation / Shifting')
+    ], string='Job Type', default='new', required=True)
+
+
+    new_shifting_address = fields.Text(string="New Address (Shifting To)", 
+                                     help="Enter the new location where RO will be installed")
+
+    # --- AUTO-FILL LOGIC ---
+    @api.onchange('partner_id')
+    def _onchange_partner_data_reinstall(self):
+        """
+        When Customer is selected:
+        1. Auto-fill 'location' with their current address.
+        2. Auto-find the Product (check Warranty first, then last Installation).
+        """
+        if self.partner_id:
+            # 1. Fill Current Address into your 'location' field
+            self.location = self.partner_id.contact_address
+
+            # 2. Find their Product automatically
+            # Priority A: Check Active Warranty
+            # (Assuming you have a model 'ro.warranty', otherwise remove this block)
+            warranty = self.env['ro.warranty'].search([
+                ('partner_id', '=', self.partner_id.id),
+                ('state', '=', 'active')
+            ], limit=1)
+            
+            if warranty:
+                self.product_id = warranty.product_id.id
+            else:
+                # Priority B: Check Last Done Installation
+                last_install = self.env['ro.installation'].search([
+                    ('partner_id', '=', self.partner_id.id),
+                    ('status', '=', 'done')
+                ], order='done_date desc', limit=1)
+                
+                if last_install:
+                    self.product_id = last_install.product_id.id
+                    # self.sale_id = last_install.sale_id.id  
+
+    def action_create_invoice(self):
+        """ Create an Invoice for the Extra Parts used """
+        self.ensure_one()
+
+        # 1. Validation: Don't create if no parts or already invoiced
+        if not self.installation_line_ids:
+            raise UserError(_("There are no extra parts to invoice."))
+        
+        if self.invoice_id:
+            raise UserError(_("An invoice has already been created for this installation."))
+
+
+        gst_treatment = self.partner_id.l10n_in_gst_treatment
+        
+        # List of B2B Treatments
+        b2b_types = ['regular', 'composition', 'special_economic_zone', 'deemed_export']
+        
+        if gst_treatment in b2b_types:
+            # Search for the B2B Journal we created in Step 1
+            journal = self.env['account.journal'].search([('code', '=', 'B2B'), ('type', '=', 'sale')], limit=1)
+        else:
+            # Default to B2C for Consumer / Unregistered
+            journal = self.env['account.journal'].search([('code', '=', 'B2C'), ('type', '=', 'sale')], limit=1)
+
+        # Fallback: If journals aren't found, use the default one
+        if not journal:
+            journal = self.env['account.journal'].search([('type', '=', 'sale')], limit=1)
+
+
+        # 2. Prepare Invoice Lines
+        invoice_lines = []
+        for line in self.installation_line_ids:
+            invoice_lines.append((0, 0, {
+                'product_id': line.product_id.id,
+                'name': f"Extra Part: {line.product_id.name}",
+                'quantity': line.qty,
+                'price_unit': line.unit_price,
+            }))
+
+        # 3. Create the Invoice Record
+        invoice_vals = {
+            'move_type': 'out_invoice',
+            'partner_id': self.partner_id.id,
+            'invoice_origin': self.name,
+            'journal_id': journal.id,  # <--- THIS LINE SETS THE SEQUENCE (B2B/B2C)
+            'ro_technician_id': self.assigned_to.id,
+            'invoice_line_ids': invoice_lines,
+        }
+        
+        invoice = self.env['account.move'].create(invoice_vals)
+        self.invoice_id = invoice.id
+
+        # 4. Return action to show the invoice immediately
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Invoice',
+            'res_model': 'account.move',
+            'res_id': invoice.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+    
+    def action_view_invoice(self):
+        """ Smart button to view the invoice later """
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Invoice',
+            'res_model': 'account.move',
+            'res_id': self.invoice_id.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
 
     @api.model
     def create(self, vals):
@@ -185,3 +312,26 @@ class ROInstallation(models.Model):
             'view_mode': 'form',
             'target': 'current',
         }
+        
+        
+        
+# --- NEW CLASS FOR THE LINES ---
+class RoInstallationLine(models.Model):
+    _name = 'ro.installation.line'
+    _description = 'Installation Extra Parts'
+
+    installation_id = fields.Many2one('ro.installation', string="Installation Ref")
+    
+    product_id = fields.Many2one('product.product', string="Product", required=True)
+    qty = fields.Float(string="Quantity", default=1.0)
+    unit_price = fields.Float(string="Unit Price", related='product_id.list_price', readonly=False)
+    
+    # Simple subtotal
+    subtotal = fields.Float(string="Subtotal", compute='_compute_subtotal')
+
+    @api.depends('qty', 'unit_price')
+    def _compute_subtotal(self):
+        for line in self:
+            line.subtotal = line.qty * line.unit_price
+
+
